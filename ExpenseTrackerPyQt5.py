@@ -1273,3 +1273,6 @@ if __name__ == '__main__':
     # start the app
     mainWin.show()
     sys.exit(app.exec_())
+
+    print('this is a primary print message')
+
