@@ -141,13 +141,13 @@ class User:
     """User class, You will be able to register with username and pw, data of user will be accesed by userid str in database
     as a new column"""
 
-    def __init__(self, username: str, password: str, userIDs: list(str)) -> None:
+    def __init__(self, username: str, password: str) -> None:
+        userIDs = dtbUser.getRowValuesById(3)
         self._username = username
         self._password = password
         self.userID = [randrange(9999) for _ in range(10)]
         while self.userID in userIDs:
             self.userID = [randrange(9999) for _ in range(10)]
-            
 
     @property
     def username(self) -> str:
@@ -195,6 +195,11 @@ class DataBase:
         self.cursor.execute('SELECT ID FROM ' + self.table)
         rws = self.cursor.fetchall()
         rws = rws[::-1]
+        try:
+            r = rws[rowid][0]
+        except IndexError as e:
+            print(e)
+            return []
         r = rws[rowid][0]
         self.cursor.execute('SELECT * FROM ' + self.table + ' WHERE ID = ?', (r,))
         row = self.cursor.fetchall()
@@ -209,13 +214,13 @@ class DataBase:
         self.cursor.execute('SELECT * FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def dataEntry(self, price: float, exp: str, moreInfo: str = None):
+    def dataEntry(self, price: float, exp: str, userID, moreInfo: str = None):
         """Enters data into a database"""
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
         self.cursor.execute(
-                'INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year) VALUES (?, ?, ?, ?, ?, ?)',
-                (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year))
+                'INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, UserID) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, userID))
         self.conn.commit()
 
     def clearDtb(self) -> None:
@@ -686,6 +691,12 @@ class SpinBox(QtWidgets.QSpinBox):
         return self.spinbox.value()
 
 
+def createUser():
+    name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
+    pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
+    user = User(name, pw)
+
+
 def updateLbls(focus: int=None):
     if focus == 1:
         lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
@@ -731,7 +742,7 @@ def delSelectedItem() -> None:
             updateLbls()
         except IndexError:
             return
-
+    
 
 def addItem() -> None:
     """Main handler for adding items to listbox"""
@@ -1228,6 +1239,7 @@ if __name__ == '__main__':
     dtbOldOnce = DataBase(path + 'OldExpenses.db', 'OneTimeExpenseTable')
     dtbTakings = DataBase(expenseDtbPath, 'OneTimeTakingsTable')
     dtbTakingsMonth = DataBase(expenseDtbPath, 'MonthlyTakingsTable')
+    dtbUser = DataBase('C:/tmp/ExpenseTracker/User.db', 'User')
 
     # Check wether the month has ended
     if monthEnd():
@@ -1300,6 +1312,7 @@ if __name__ == '__main__':
     setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=500, height=35,
                         width=90)
 
+    createUser()
     # start the app
     mainWin.show()
     sys.exit(app.exec_())
