@@ -1270,7 +1270,6 @@ if __name__ == '__main__':
     setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=500, height=35,
                         width=90)
 
-    # updateLbls()
     # start the app
     mainWin.show()
     sys.exit(app.exec_())
