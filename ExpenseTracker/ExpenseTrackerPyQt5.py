@@ -22,6 +22,7 @@ from sqlite3 import connect
 from matplotlib.pyplot import plot, legend, title, xlabel, ylabel, show
 from concurrent.futures import ThreadPoolExecutor
 from string import ascii_lowercase, ascii_uppercase
+from random import randrange
 
 global path, expenseDtbPath
 DEFAULTFONT = 'MS Shell Dlg 2'
@@ -134,6 +135,35 @@ class Editor(QtWidgets.QMessageBox):
 
     def show(self) -> None:
         self.editWin.show()
+
+
+class User:
+    """User class, You will be able to register with username and pw, data of user will be accesed by userid str in database
+    as a new column"""
+
+    def __init__(self, username: str, password: str, userIDs: list(str)) -> None:
+        self._username = username
+        self._password = password
+        self.userID = [randrange(9999) for _ in range(10)]
+        while self.userID in userIDs:
+            self.userID = [randrange(9999) for _ in range(10)]
+            
+
+    @property
+    def username(self) -> str:
+        return self._username
+
+    @username.setter
+    def username(self, value) -> None:
+        self._username = value
+
+    @property
+    def password(self) -> str:
+        return self._password
+
+    @password.setter
+    def password(self, value) -> None:
+        self._password = value
 
 
 class DataBase:
