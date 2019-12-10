@@ -10,9 +10,6 @@ to the newer one.
 """
 
 
-#this text is changed
-
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from os import execl, mkdir
