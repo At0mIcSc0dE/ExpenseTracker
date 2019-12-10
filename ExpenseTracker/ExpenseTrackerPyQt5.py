@@ -9,7 +9,8 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
-
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from os import execl, mkdir
@@ -426,8 +427,7 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             return False
 
         if name and price != '':
-            # text = f'{name}, {price}{currency}'
-            for i in range(multiplier):
+            for _ in range(multiplier):
                 self.insertItems(0, '{1}, {0:.2f}{2}'.format(price, name, currency))
                 addListToDtb(price, name, expenseTime, moreInfo)
                 expMultiTxt.text = 1
