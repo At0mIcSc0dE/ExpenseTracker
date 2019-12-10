@@ -9,6 +9,10 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
+
+#this text is changed
+
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from os import execl, mkdir
