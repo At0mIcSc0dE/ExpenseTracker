@@ -944,7 +944,6 @@ def showUserToExpense():
                 'User', f'Der algemeine Benutzer hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
     
 
-
 def readFromTxtFile(pa: str, typ: str):
     """Reads from text file. Valid typ params: 'str', 'float'"""
 
