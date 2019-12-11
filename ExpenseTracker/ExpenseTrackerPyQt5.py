@@ -138,17 +138,15 @@ class Editor(QtWidgets.QMessageBox):
 
 
 class User:
-    """User class, You will be able to register with username and pw, data of user will be accesed by userid str in database
+    """User class, You will be able to register with username and pw, data of user will be accesed by username str in database
     as a new column"""
 
     def __init__(self, username: str, password: str) -> None:
-        userIDs = dtbUser.getRowValuesById(3)
         self._username = username
         self._password = password
-        self.userID = [randrange(9999) for _ in range(10)]
-        while self.userID in userIDs:
-            self.userID = [randrange(9999) for _ in range(10)]
-
+        if not self.userExists():
+            self.registerUser()
+    
     @property
     def username(self) -> str:
         return self._username
@@ -164,6 +162,25 @@ class User:
     @password.setter
     def password(self, value) -> None:
         self._password = value
+
+    def registerUser(self):
+        dtbUser.dataEntryUser(self.username, self.password)
+
+    def userExists(self) -> bool:
+        """Returns true if the user already exists"""
+
+        users = dtbUser.readUserDtb()
+        curUser = (self.username, self.password)
+        return True if curUser in users else False
+
+    def belongsTo(self, dtbElements: list) -> list:
+        """Returns all the elements that belong to the user"""
+
+        results = []
+        for element in dtbElements:
+            if str(element[3]) == self.username:
+                results.append(element)
+        return results
 
 
 class DataBase:
@@ -214,13 +231,19 @@ class DataBase:
         self.cursor.execute('SELECT * FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def dataEntry(self, price: float, exp: str, userID, moreInfo: str = None):
+    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None):
         """Enters data into a database"""
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
         self.cursor.execute(
-                'INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, UserID) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, userID))
+                'INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, username))
+        self.conn.commit()
+
+    def dataEntryUser(self, username: str, password: str) -> None:
+        """Enters into user database, takes username, password and userid"""
+
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Username, Password) VALUES (?, ?)', (username, password))
         self.conn.commit()
 
     def clearDtb(self) -> None:
@@ -284,7 +307,13 @@ class DataBase:
     def readFromDtb(self) -> list:
         """Reads Expense, Price, MoreInfo from Database"""
 
-        self.cursor.execute('SELECT Expense, Price, MoreInfo FROM ' + self.table)
+        self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table)
+        return self.cursor.fetchall()
+
+    def readUserDtb(self) -> list:
+        """Reads Username, Password and UserID"""
+
+        self.cursor.execute('SELECT Username, Password FROM ' + self.table)
         return self.cursor.fetchall()
 
     def update(self, rowid: int, name: str, price: float, moreInfo: str) -> None:
@@ -691,12 +720,6 @@ class SpinBox(QtWidgets.QSpinBox):
         return self.spinbox.value()
 
 
-def createUser():
-    name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
-    pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
-    user = User(name, pw)
-
-
 def updateLbls(focus: int=None):
     if focus == 1:
         lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
@@ -787,22 +810,22 @@ def dupSelectedItem() -> None:
         text = dtbOnce.getRowValuesById(currselectOnce, 1, 2, 3)
         lstbox.insertItems(
             currselectOnce + 1, lstbox.listbox.currentItem().text())
-        dtbOnce.dataEntry(text[1], text[0], text[2])
+        dtbOnce.dataEntry(text[1], text[0], user.username, text[2])
         updateLbls(1)
     elif DELCMD == 'focus2' and currselectMonth != -1:
         text = dtbMonth.getRowValuesById(currselectMonth, 1, 2, 3)
         lstboxMonth.insertItems(currselectMonth + 1, lstboxMonth.listbox.currentItem().text())
-        dtbMonth.dataEntry(text[1], text[0], text[2])
+        dtbMonth.dataEntry(text[1], text[0], user.username, text[2])
         updateLbls(1)
     elif DELCMD == 'focus3' and currselectTakings != -1:
         text = dtbTakings.getRowValuesById(currselectTakings, 1, 2, 3)
         lstboxTakings.insertItems(currselectTakings + 1, lstboxTakings.listbox.currentItem().text())
-        dtbTakings.dataEntry(text[1], text[0], text[2])
+        dtbTakings.dataEntry(text[1], text[0], user.username, text[2])
         updateLbls()
     elif DELCMD == 'focus4' and currselectTakingsMonth != -1:
         text = dtbTakingsMonth.getRowValuesById(currselectTakingsMonth, 1, 2, 3)
         lstboxTakingsMonth.insertItems(currselectTakingsMonth + 1, lstboxTakingsMonth.listbox.currentItem().text())
-        dtbTakingsMonth.dataEntry(text[1], text[0], text[2])
+        dtbTakingsMonth.dataEntry(text[1], text[0], user.username, text[2])
         updateLbls()
 
 
@@ -837,13 +860,13 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     """Adds parameters to database"""
 
     if t == 'once':
-        dtbOnce.dataEntry(float(price), exp, moreInfo)
+        dtbOnce.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'month':
-        dtbMonth.dataEntry(float(price), exp, moreInfo)
+        dtbMonth.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'taking':
-        dtbTakings.dataEntry(float(price), exp, moreInfo)
+        dtbTakings.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'takingMonth':
-        dtbTakingsMonth.dataEntry(float(price), exp, moreInfo)
+        dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
     else:
         raise ValueError
 
@@ -888,6 +911,38 @@ def showExpenseInfo() -> None:
         infoMonth = dtbTakings.getRowValuesById(curselectMonth, 3)
         if infoMonth != [None]: QtWidgets.QMessageBox.information(None, 'Product info', ''.join(infoMonth),
                                                                   QtWidgets.QMessageBox.Ok)
+
+def showUserToExpense():
+    """Shows a messagebox displaying which user added this item"""
+    
+    curselectOnce = lstbox.curselection()
+    curselectMonth = lstboxMonth.curselection()
+    curselectTakings = lstboxTakings.curselection()
+    curselectTakingsMonth = lstboxTakingsMonth.curselection()
+    if curselectOnce or curselectMonth or curselectTakings or curselectTakingsMonth != -1:
+        if curselectOnce != -1 and DELCMD == 'focus1':
+            expenses = dtbOnce.readFromDtb()[::-1][curselectOnce]
+        elif curselectMonth != -1 and DELCMD == 'focus2':
+            expenses = dtbMonth.readFromDtb()[::-1][curselectMonth]
+        elif curselectTakings != -1 and DELCMD == 'focus3':
+            expenses = dtbTakings.readFromDtb()[::-1][curselectTakings]
+        elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
+            expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
+        if english:
+            if expenses[3] is not None:
+                QtWidgets.QMessageBox.information(mainWin,
+                'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
+            else:
+                QtWidgets.QMessageBox.information(mainWin,
+                'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
+        elif german:
+            if expenses[3] is not None:
+                QtWidgets.QMessageBox.information(mainWin,
+                'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
+            else:
+                QtWidgets.QMessageBox.information(mainWin,
+                'User', f'Der algemeine Benutzer hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
+    
 
 
 def readFromTxtFile(pa: str, typ: str):
@@ -1062,7 +1117,7 @@ def monthEnd() -> bool:
         msgbox.setWindowTitle('New month!')
         writeToTxtFile(path + 'Bank.txt', str(calculateBank()))
         for data in dtbOnce.getAllRecords():
-            dtbOldOnce.dataEntry(data[2], data[1], data[3])
+            dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
             dtbOnce.clearDtb()
             lstbox.listbox.clear()
             dtbTakings.clearDtb()
@@ -1241,17 +1296,31 @@ if __name__ == '__main__':
     dtbTakingsMonth = DataBase(expenseDtbPath, 'MonthlyTakingsTable')
     dtbUser = DataBase('C:/tmp/ExpenseTracker/User.db', 'User')
 
+    # creating user
+    name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
+    pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
+    user = User(name, pw)
+
     # Check wether the month has ended
     if monthEnd():
         bankBalance = readFromTxtFile(path + 'Bank.txt', 'float')
-
-    for data in dtbOnce.readFromDtb():
+    if user.username and user.password != '':
+        dataOnce = user.belongsTo(dtbOnce.readFromDtb())
+        dataMonth = user.belongsTo(dtbMonth.readFromDtb())
+        dataTakings = user.belongsTo(dtbTakings.readFromDtb())
+        dataTakingsMonth = user.belongsTo(dtbTakingsMonth.readFromDtb())
+    else:
+        dataOnce = dtbOnce.readFromDtb()
+        dataMonth = dtbMonth.readFromDtb()
+        dataTakings = dtbTakings.readFromDtb()
+        dataTakingsMonth = dtbTakingsMonth.readFromDtb()
+    for data in dataOnce:
         lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
-    for data in dtbMonth.readFromDtb():
+    for data in dataMonth:
         lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
-    for data in dtbTakings.readFromDtb():
+    for data in dataTakings:
         lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
-    for data in dtbTakingsMonth.readFromDtb():
+    for data in dataTakingsMonth:
         lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
 
     # Textboxes
@@ -1305,14 +1374,14 @@ if __name__ == '__main__':
     clearBtn = Button(mainWin, text='Clear List', command=clearD, x=230, y=280, height=35, width=90, key='Ctrl+C')
     moreInfoBtn = Button(mainWin, text='More Info', command=showExpenseInfo, x=230, y=340, height=35, width=90,
                          key='Ctrl+F')
-    showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=400, height=35,
+    showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35,
                              width=90)
-    showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=440, height=35,
+    showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35,
                               width=90)
-    setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=500, height=35,
+    setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35,
                         width=90)
+    userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
 
-    createUser()
     # start the app
     mainWin.show()
     sys.exit(app.exec_())
