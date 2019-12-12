@@ -141,12 +141,26 @@ class User:
     """User class, You will be able to register with username and pw, data of user will be accesed by username str in database
     as a new column"""
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(self, username: str, password: str, balance: str=0) -> None:
         self._username = username
         self._password = password
+        self._balance = balance
         if not self.userExists():
-            self.registerUser()
+            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+        if self.username == 'global' and self.password == '':
+            b = dtbUser.readUserDtb()
+            for balance in b:
+                if balance[0] != 'global':
+                    self.balance += balance[2]
     
+    @property
+    def balance(self):
+        return self._balance
+
+    @balance.setter
+    def balance(self, value):
+        self._balance = value
+
     @property
     def username(self) -> str:
         return self._username
@@ -163,13 +177,10 @@ class User:
     def password(self, value) -> None:
         self._password = value
 
-    def registerUser(self):
-        dtbUser.dataEntryUser(self.username, self.password)
-
     def userExists(self) -> bool:
         """Returns true if the user already exists"""
 
-        users = dtbUser.readUserDtb()
+        users = dtbUser.readUserDtb(arg='noBank')
         curUser = (self.username, self.password)
         return True if curUser in users else False
 
@@ -240,10 +251,10 @@ class DataBase:
                 (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, username))
         self.conn.commit()
 
-    def dataEntryUser(self, username: str, password: str) -> None:
+    def dataEntryUser(self, username: str, password: str, balance: str) -> None:
         """Enters into user database, takes username, password and userid"""
 
-        self.cursor.execute('INSERT INTO ' + self.table + ' (Username, Password) VALUES (?, ?)', (username, password))
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Username, Password, BankBalance) VALUES (?, ?, ?)', (username, password, balance))
         self.conn.commit()
 
     def clearDtb(self) -> None:
@@ -287,9 +298,12 @@ class DataBase:
         msgbox.setWindowTitle('Invalid Input')
         msgbox.setText('Invalid Input, try again!')
         msgbox.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
-
-        self.cursor.execute('SELECT Price FROM ' + self.table)
-        expenses = self.cursor.fetchall()
+        if user.username == 'global' and user.password == '':
+            self.cursor.execute('SELECT Price FROM ' + self.table)
+            expenses = self.cursor.fetchall()
+        else:
+            self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (user.username, ))
+            expenses = self.cursor.fetchall()
         totalExpense = 0
         for expense in expenses:
             while True:
@@ -310,11 +324,18 @@ class DataBase:
         self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def readUserDtb(self) -> list:
-        """Reads Username, Password and UserID"""
+    def readUserDtb(self, username: str=None, arg: str = None) -> list:
+        """Reads Username, Password and Balance"""
+        if arg == 'noBank':
+            self.cursor.execute('SELECT Username, Password FROM ' + self.table)
+            return self.cursor.fetchall()
+        elif username is not None:
+            self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
+            return self.cursor.fetchall()
+        else:
+            self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table)
+            return self.cursor.fetchall()
 
-        self.cursor.execute('SELECT Username, Password FROM ' + self.table)
-        return self.cursor.fetchall()
 
     def update(self, rowid: int, name: str, price: float, moreInfo: str) -> None:
         """Updates one record with the rowid and replaces the name, price and moreInfo with the passed parameters"""
@@ -929,14 +950,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] is not None:
+            if expenses[3] is not 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                 'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                 'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] is not None:
+            if expenses[3] is not 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                 'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -982,10 +1003,11 @@ def calculateIncome() -> float:
 
 def calculateBank() -> float:
     """Returns the money left from your bank ballance"""
+
     try:
-        return round(bankBalance + calculateIncome() - dtbOnce.cal() - dtbMonth.cal(), 2)
+        return round(float(user.balance) + calculateIncome() - dtbOnce.cal() - dtbMonth.cal(), 2)
     except TypeError:
-        setBankBalance()
+        return setBankBalance()
 
 
 def setBankBalance() -> float:
@@ -996,14 +1018,17 @@ def setBankBalance() -> float:
         inpt, okpressed = QtWidgets.QInputDialog.getDouble(None, 'Bankguthaben', 'Bitte gib dein Bankguthaben ein',
                                                            min=0, decimals=2)
     if okpressed:
-        writeToTxtFile(path + 'Bank.txt', str(inpt))
-        return inpt
+        user.balance = str(inpt)
+        dtbUser.cursor.execute('Update User SET BankBalance = ? WHERE Username = ?', (user.balance, user.username))
+        dtbUser.conn.commit()
+        return float(user.balance)
     else:
         exit()
 
 
 def setBankBalanceBtn():
     setBankBalance()
+    updateLbls()
     restart()
 
 
@@ -1268,25 +1293,6 @@ if __name__ == '__main__':
     except:
         path = 'C:/tmp/ExpenseTracker/'
 
-    # All the first Time things like creating files and entering config data
-    if isFirstTime():
-        createFiles()
-        today = datetime.today()
-        writeToTxtFile(path + 'LastOpened.txt', f'{str(today.month)};{str(today.year)}')
-        writeToTxtFile(path + 'FirstTime.txt', 'False')
-        writeToTxtFile(dirfile, path)
-        bankBalance = setBankBalance()
-        writeToTxtFile(path + 'Bank.txt', str(bankBalance))
-    else:
-        expenseDtbPath = path + 'Expenses.db'
-        bankBalance = readFromTxtFile(path + 'Bank.txt', 'float')
-
-    # Drop down menu for currency
-    comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
-    comboBoxCur.addItems('Euro €', 'Dollar $', 'Pound £')
-    comboBoxLang = ComboBox(mainWin, x=1120, y=0, width=80, height=40, fontsize=11)
-    comboBoxLang.addItems('English', 'Deutsch')
-
     # Database
     dtbOnce = DataBase(expenseDtbPath, 'OneTimeExpenseTable')
     dtbMonth = DataBase(expenseDtbPath, 'MonthlyExpenseTable')
@@ -1300,10 +1306,16 @@ if __name__ == '__main__':
     pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
     user = User(name, pw)
 
+    # Drop down menu for currency
+    comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
+    comboBoxCur.addItems('Euro €', 'Dollar $', 'Pound £')
+    comboBoxLang = ComboBox(mainWin, x=1120, y=0, width=80, height=40, fontsize=11)
+    comboBoxLang.addItems('English', 'Deutsch')
+
     # Check wether the month has ended
     if monthEnd():
-        bankBalance = readFromTxtFile(path + 'Bank.txt', 'float')
-    if user.username and user.password != '':
+        user.balance = dtbUser.readUserDtb(user.username)[0][2]
+    if user.username != 'global':
         dataOnce = user.belongsTo(dtbOnce.readFromDtb())
         dataMonth = user.belongsTo(dtbMonth.readFromDtb())
         dataTakings = user.belongsTo(dtbTakings.readFromDtb())
@@ -1322,6 +1334,22 @@ if __name__ == '__main__':
     for data in dataTakingsMonth:
         lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
 
+    # All the first Time things like creating files and entering config data
+    if isFirstTime():
+        createFiles()
+        today = datetime.today()
+        writeToTxtFile(path + 'LastOpened.txt', f'{str(today.month)};{str(today.year)}')
+        writeToTxtFile(path + 'FirstTime.txt', 'False')
+        writeToTxtFile(dirfile, path)
+        user.balance = setBankBalance()
+        dtbUser.cursor.execute('Update User SET BankBalance = ? WHERE Username = ?', (user.balance, user.username, ))
+        dtbUser.conn.commit()
+        user.balance = dtbUser.readUserDtb(user.username)[0][2]
+    else:
+        expenseDtbPath = path + 'Expenses.db'
+        if user.username != 'global':
+            user.balance = dtbUser.readUserDtb(user.username)[0][2]
+        
     # Textboxes
     expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16)
     expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16)
@@ -1377,8 +1405,9 @@ if __name__ == '__main__':
                              width=90)
     showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35,
                               width=90)
-    setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35,
-                        width=90)
+    if user.username != 'global':
+        setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35,
+                            width=90)
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
 
     # start the app
