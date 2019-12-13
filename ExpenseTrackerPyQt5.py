@@ -11,7 +11,7 @@ to the newer one.
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-import sys
+from sys import exit, argv, executable
 from os import execl, mkdir
 from os.path import exists
 from shutil import move
@@ -128,13 +128,15 @@ class UserEditor(QtWidgets.QDialog):
         self.userInfoBtnEdit = Button(self.editWin, text='Show User Info', x=220, y=110, width=90, height=35, command=showUserInfo)
         self.deleteBtnEdit = Button(self.editWin, text='Delete', x=220, y=150, width=90, height=35, command=deleteUser)
         self.lblUserGroup = Label(self.editWin, text='Users in Group', x=240, y=196, width=160, height=20, fontsize=13)
-        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=220, height=40, fontsize=16)
-        self.PasswordTxt = TextBox(self.editWin, x=560, y=30, width=220, height=40, fontsize=16)
+        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=170, height=40, fontsize=16)
+        self.PasswordTxt = TextBox(self.editWin, x=520, y=30, width=170, height=40, fontsize=16)
+        self.BalanceTxt = TextBox(self.editWin, x=710, y=30, width=170, height=40, fontsize=16)
         self.lblinfoUsername = Label(self.editWin, text='Username', x=330, y=10, width=200, height=20, fontsize=13)
         self.lblinfoPassword = Label(self.editWin, text='Password', x=560, y=10, width=200, height=20, fontsize=13)
-        self.chbAddUser = CheckBox(self.editWin, text='Add User', x=330, y=80, width=240, height=20)
-        self.chbAddUserGroup = CheckBox(self.editWin, text='Add User Group', x=330, y=110, width=240, height=20)
-        self.chbAddUserToGroup = CheckBox(self.editWin, text='Add selected User to selected User Group', x=330, y=140, width=240, height=20)
+        self.chbAddUser = CheckBox(self.editWin, text='Add User', x=330, y=80, width=240, height=20, command=chb5CommandHandler)
+        self.chbAddUserGroup = CheckBox(self.editWin, text='Add User Group', x=330, y=110, width=240, height=20, command=chb6CommandHandler)
+        self.chbAddUserToGroup = CheckBox(self.editWin, text='Add selected User to selected User Group', x=330, y=140, width=240, height=20, command=chb7CommandHandler)
+        self.lblinfoBalance = Label(self.editWin, text='Bank Balance', x=710, y=10, width=210, height=20, fontsize=13)
 
     def close(self) -> None:
         """Closes the editwindow"""
@@ -161,7 +163,7 @@ class User:
             b = dtbUser.readUserDtb()
             for bal in b:
                 if bal[0] != 'global':
-                    self.balance += bal[2]
+                    self.balance += float(bal[2])
     
     def registerUser(self):
         """registers the user, adds them to dtb and json file(global group)"""
@@ -372,7 +374,6 @@ class DataBase:
         self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table)
         return self.cursor.fetchall()
 
-
     def update(self, rowid: int, name: str, price: float, moreInfo: str) -> None:
         """Updates one record with the rowid and replaces the name, price and moreInfo with the passed parameters"""
 
@@ -383,6 +384,13 @@ class DataBase:
         self.cursor.execute('UPDATE ' + self.table + ' SET Expense = ?, Price = ?, MoreInfo = ? WHERE ID = ?',
                             (name, price, moreInfo, ids))
         self.conn.commit()
+
+    def destroy(self):
+        """Closes instance off class"""
+
+        self.cursor.close()
+        self.conn.close()
+        del self
 
 
 class Button(QtWidgets.QPushButton):
@@ -521,10 +529,10 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         return False
 
     def add(self, expenseTime: (str, tuple), txt: str = None, currselect: tuple = None, index: int = 0) -> bool:
-
         """Adds items into listbox.
-        Valid expenseTime: ('dup', 'once'), ('dup', 'month'), 'once', 'month', 'taking'"""
+        Valid expenseTime: ('dup', 'once'), ('dup', 'month'), 'once', 'month', 'taking', 'user'"""
 
+        global userWin
         if isinstance(expenseTime, tuple):
             self.listbox.insert(index, txt)
             name = txt.split(',')[0]
@@ -538,12 +546,16 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 moreInfo = dtbMonth.getRowValuesById(currselect[0], 3)
             addListToDtb(float(price), name, expTime, moreInfo)
             return True
-
-        name = expNameTxt.getText()
-        price = expPriceTxt.getText()
-        moreInfo = expInfo.getText()
-        currency = comboBoxCur.getText().split(' ')[1]
-        multiplier = expMultiTxt.getText()
+        if expenseTime == 'user':
+            name = userWin.UsernameTxt.getText()
+            password = userWin.PasswordTxt.getText()
+            balance = userWin.BalanceTxt.getText()
+        else:
+            expname = expNameTxt.getText()
+            expprice = expPriceTxt.getText()
+            expmoreInfo = expInfo.getText()
+            expcurrency = comboBoxCur.getText().split(' ')[1]
+            expmultiplier = expMultiTxt.getText()
 
         # Check if valid price and multiplier input
         msgbox = QtWidgets.QMessageBox(mainWin)
@@ -551,16 +563,25 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         msgbox.setIcon(QtWidgets.QMessageBox.Critical)
         msgbox.setGeometry(500, 200, 300, 500)
         try:
-            price = float(price)
-            multiplier = int(multiplier)
+            if expenseTime == 'user':
+                if balance != '':
+                    balance = float(balance)
+                else:
+                    balance = float(0)
+            else:
+                expprice = float(expprice)
+                multiplier = int(expmultiplier)
         except:
             msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
             return False
-
-        if name and price != '':
+        if expenseTime == 'user':
+            self.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(balance, name, password))
+            addListToDtb(price=password, exp=name, t=expenseTime, moreInfo=balance)
+            return True
+        elif expname and expprice != '':
             for _ in range(multiplier):
-                self.insertItems(0, '{1}, {0:.2f}{2}'.format(price, name, currency))
-                addListToDtb(price, name, expenseTime, moreInfo)
+                self.insertItems(0, '{1}, {0:.2f}{2}'.format(expprice, expname, expcurrency))
+                addListToDtb(expprice, expname, expenseTime, expmoreInfo)
                 expMultiTxt.text = 1
             return True
         msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
@@ -936,18 +957,12 @@ def selectDirMoveFiles() -> None:
     if filedialog.exec_() == QtWidgets.QDialog.Accepted:
         newPath = filedialog.selectedFiles()[0]
     if newPath is not path:
-        dtbOnce.cursor.close()
-        dtbOnce.conn.close()
-        dtbMonth.cursor.close()
-        dtbMonth.conn.close()
-        dtbOldOnce.cursor.close()
-        dtbOldOnce.conn.close()
-        dtbTakings.cursor.close()
-        dtbTakings.conn.close()
-        try:
-            move(path, newPath)
-        except:
-            restart()
+        dtbOnce.destroy()
+        dtbMonth.destroy()
+        dtbOldOnce.destroy()
+        dtbTakings.destroy()
+        dtbTakingsMonth.destroy()
+        move(path, newPath)
         path = newPath
         writeToTxtFile(dirfile, path + '/ExpenseTracker/')
         restart()
@@ -964,6 +979,8 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
         dtbTakings.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'takingMonth':
         dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
+    elif t == 'user':
+        dtbUser.dataEntryUser(exp, price, moreInfo)
     else:
         raise ValueError
 
@@ -984,7 +1001,7 @@ def isFirstTime() -> bool:
 def restart() -> None:
     """restarts application"""
 
-    execl(sys.executable, sys.executable, *sys.argv)
+    execl(executable, executable, *argv)
 
 
 def showExpenseInfo() -> None:
@@ -1081,10 +1098,19 @@ def calculateIncome() -> float:
 def calculateBank() -> float:
     """Returns the money left from your bank ballance"""
 
-    try:
-        return round(float(user.balance) + calculateIncome() - dtbOnce.cal() - dtbMonth.cal(), 2)
+    try:            # float(user.balance)
+        return round(calculateBalanceOfAllUsers() + calculateIncome() - dtbOnce.cal() - dtbMonth.cal(), 2)
     except TypeError:
         return setBankBalance()
+
+
+def calculateBalanceOfAllUsers() -> float:
+    """returns a float with the current user balance. Reads from dtbUser"""
+
+    retval = 0
+    for data in dtbUser.readUserDtb():
+        retval += data[2]
+    return retval
 
 
 def setBankBalance() -> float:
@@ -1161,6 +1187,8 @@ def changeLanguageEnglish(eng: bool) -> None:
         lblMonthlyTakings.text = 'Monthly Income Sources'
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
         setBankBtn.text = 'Set Balance'
+        if user.username == 'global':
+            editUserBtn.text = 'Edit Users'
 
 
 
@@ -1190,6 +1218,8 @@ def changeLanguageGerman(ger: bool) -> None:
         lblMonthlyTakings.text = 'Monatliche Einnahmen'
         lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
         setBankBtn.text = 'Guthaben'
+        if user.username == 'global':
+            editUserBtn.text = 'Benutzer verwalten'
 
 
 def isMonthEnd() -> bool:
@@ -1334,6 +1364,44 @@ def chb4CommandHandler() -> None:
 
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
+def chb5CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
+    global userWin
+    userWin.UsernameTxt.textbox.show()
+    userWin.PasswordTxt.textbox.show()
+    userWin.BalanceTxt.textbox.show()
+    userWin.lblinfoUsername.label.show()
+    userWin.lblinfoPassword.label.show()
+    userWin.lblinfoBalance.label.show()
+    userWin.lblinfoUsername.text = 'Username'
+    userWin.chbAddUser.unckeckAny(False, userWin.chbAddUserGroup, userWin.chbAddUserToGroup)
+
+def chb6CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
+    global userWin
+    userWin.UsernameTxt.textbox.show()
+    userWin.PasswordTxt.textbox.show()
+    userWin.BalanceTxt.textbox.hide()
+    userWin.lblinfoUsername.label.show()
+    userWin.lblinfoPassword.label.show()
+    userWin.lblinfoBalance.label.hide()
+    userWin.lblinfoUsername.text = 'Group name'
+    userWin.chbAddUserGroup.unckeckAny(False, userWin.chbAddUser, userWin.chbAddUserToGroup)
+
+def chb7CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
+    global userWin
+    userWin.UsernameTxt.textbox.hide()
+    userWin.PasswordTxt.textbox.hide()
+    userWin.BalanceTxt.textbox.hide()
+    userWin.lblinfoUsername.label.hide()
+    userWin.lblinfoPassword.label.hide()
+    userWin.lblinfoBalance.label.hide()
+    userWin.chbAddUserToGroup.unckeckAny(False, userWin.chbAddUserGroup, userWin.chbAddUser)
+
 
 def edit() -> None:
     """Function to handle the edit window"""
@@ -1367,11 +1435,12 @@ def userEdit():
     #I had to use the global statement for the window so it doesnt get destroyed immideately when I try to open it
     global userWin
     userWin = UserEditor()
+    userWin.chbAddUser.check()
 
     for data in dtbUser.readUserDtb():
-        userWin.lstboxUsers.insertItems(0, f'"{data[0]}", "{data[1]}", {data[2]}')
+        userWin.lstboxUsers.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(data[2], data[0], data[1]))
 
-    with open(path + 'groups.json') as file:
+    with open('C:/tmp/groups.json') as file:
         groups = json.load(file)
 
     for group in groups['groups']:
@@ -1384,6 +1453,18 @@ def addUser():
     """chb1.checked: Adds user to lstbox, dtbase
        chh2.checked: Adds user group
        chb3.checked: Adds selected user to user group"""
+
+    global userWin
+    if userWin.chbAddUser.checkbox.isChecked():
+        if userWin.lstboxUsers.add('user'):
+            User(userWin.UsernameTxt.getText(), userWin.PasswordTxt.getText(), userWin.BalanceTxt.getText())
+            userWin.UsernameTxt.text = ''
+            userWin.PasswordTxt.text = ''
+            userWin.BalanceTxt.text = ''
+            updateLbls()
+    elif userWin.chbAddUserGroup.checkbox.isChecked():
+        pass
+
 
 
 def editUser():
@@ -1402,7 +1483,7 @@ def showUserInfo():
 
 if __name__ == '__main__':
     # Initialize main app
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication(argv)
     mainWin = MainWindow(application=app, mainWindowTitle='ExpenseTracker', minsizeX=1200, minsizeY=600, maxsizeX=1200, maxsizeY=600)
     mainWin.resize(1200, 600)
     lstbox = ListBox(mainWin, x=20, y=50, width=180, height=300, fontsize=13)
@@ -1540,6 +1621,6 @@ if __name__ == '__main__':
 
     # start the app
     mainWin.show()
-    sys.exit(app.exec_())
+    exit(app.exec_())
 
 
