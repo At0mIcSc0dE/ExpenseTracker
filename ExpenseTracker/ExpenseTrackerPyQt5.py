@@ -169,7 +169,7 @@ class User:
         dtbUser.dataEntryUser(self.username, self.password, self.balance)
         self.addToGroup('global')
 
-    def addToGroup(self, group: str, path: str='C:/tmp/ExpenseTracker/groups.json'):
+    def addToGroup(self, group: str, path: str='C:/tmp/groups.json'):
         """Adds user to group, stored in json file"""
 
         with open(path) as file:
