@@ -9,8 +9,7 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
-# pylint: disable=unused-argument
-# pylint: disable=unused-variable
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from os import execl, mkdir
@@ -22,7 +21,8 @@ from sqlite3 import connect
 from matplotlib.pyplot import plot, legend, title, xlabel, ylabel, show
 from concurrent.futures import ThreadPoolExecutor
 from string import ascii_lowercase, ascii_uppercase
-from random import randrange
+import json
+
 
 global path, expenseDtbPath
 DEFAULTFONT = 'MS Shell Dlg 2'
@@ -31,6 +31,8 @@ DELCMD = 'focus1'
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    """Main WIndow"""
+
     def __init__(self, mainWindowTitle: str = 'MainWindow',
                  application: QtWidgets.QApplication = None, minsizeX: int = 0, minsizeY: int = 0,
                  maxsizeX: int = 1920, maxsizeY: int = 1080, *args, **kwargs) -> None:
@@ -43,10 +45,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMaximumSize(QtCore.QSize(maxsizeX, maxsizeY))
 
     def closeEvent(self, event):
+        """closes all windows"""
+
         self.app.closeAllWindows()
 
 
-class Editor(QtWidgets.QMessageBox):
+class Editor(QtWidgets.QDialog):
     """The editor to edit the selected entry"""
 
     def __init__(self) -> None:
@@ -57,46 +61,11 @@ class Editor(QtWidgets.QMessageBox):
 
         self.editWin.setObjectName("Editor")
         self.expNameTxtEdit = TextBox(self.editWin, x=60, y=110, width=220, height=40, fontsize=16)
-        self.expNameTxtEdit.setGeometry(QtCore.QRect(60, 110, 220, 40))
-        font = QtGui.QFont()
-        font.setPointSize(16)
-        self.expNameTxtEdit.setFont(font)
-        self.expNameTxtEdit.setObjectName("expNameTxtEdit")
         self.expPriceTxtEdit = TextBox(self.editWin, x=300, y=110, width=220, height=40, fontsize=16)
-        self.expPriceTxtEdit.setGeometry(QtCore.QRect(300, 110, 220, 40))
-        font = QtGui.QFont()
-        font.setPointSize(16)
-        self.expPriceTxtEdit.setFont(font)
-        self.expPriceTxtEdit.setObjectName("expPriceTxtEdit")
         self.expInfoEdit = PlainText(self.editWin, x=60, y=160, width=460, height=180, fontsize=11)
-        self.expInfoEdit.setGeometry(QtCore.QRect(60, 160, 460, 180))
-        font = QtGui.QFont()
-        font.setPointSize(11)
-        self.expInfoEdit.setFont(font)
-        self.expInfoEdit.setObjectName("expInfoEdit")
         self.lblDateEdit = Label(self.editWin, x=60, y=10, width=550, height=40, fontsize=18)
-        self.lblDateEdit.setGeometry(QtCore.QRect(60, 10, 550, 40))
-        font = QtGui.QFont()
-        font.setPointSize(18)
-        self.lblDateEdit.setFont(font)
-        self.lblDateEdit.setObjectName("lblDateEdit")
-        self.btnOkEdit = Button(self.editWin, text='Ok', x=590, y=320, width=90, height=35, key='Return',
-                                command=self.apply)
-        self.btnOkEdit.setGeometry(QtCore.QRect(590, 320, 90, 35))
-        self.btnOkEdit.setObjectName("btnOkEdit")
+        self.btnOkEdit = Button(self.editWin, text='Ok', x=590, y=320, width=90, height=35, key='Return', command=self.apply)
         self.btnCancelEdit = Button(self.editWin, text='Cancel', x=700, y=320, width=90, height=35, command=self.close)
-        self.btnCancelEdit.setGeometry(QtCore.QRect(700, 320, 90, 35))
-        self.btnCancelEdit.setObjectName("btnCancelEdit")
-
-        self.retranslateUi(self.editWin)
-        QtCore.QMetaObject.connectSlotsByName(self.editWin)
-
-    def retranslateUi(self, Editor) -> None:
-        _translate = QtCore.QCoreApplication.translate
-        Editor.setWindowTitle(_translate("Editor", "Editor"))
-        self.lblDateEdit.setText(_translate("Editor", "TextLabel"))
-        self.btnOkEdit.setText(_translate("Editor", "Ok"))
-        self.btnCancelEdit.setText(_translate("Editor", "Cancel"))
 
     def apply(self) -> None:
         """takes your selection, and the textbox elements!"""
@@ -128,12 +97,53 @@ class Editor(QtWidgets.QMessageBox):
             self.editWin.destroy()
 
     def close(self) -> None:
-
         """Closes the editwindow"""
 
         self.editWin.destroy()
 
     def show(self) -> None:
+        """shows the editwin"""
+
+        self.editWin.show()
+
+
+class UserEditor(QtWidgets.QDialog):
+    """Class to design the User editor."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.editWin = QtWidgets.QDialog()
+        self.editWin.resize(900, 450)
+        self.editWin.setWindowTitle('User Editor')
+
+        self.editWin.setMinimumSize(QtCore.QSize(900, 450))
+        self.editWin.setMaximumSize(QtCore.QSize(900, 450))
+        self.addBtnEdit = Button(self.editWin, text='Add', x=220, y=30, width=90, height=35, command=addUser)
+        self.editBtnEdit = Button(self.editWin, text='Edit', x=220, y=70, width=90, height=35, command=editUser)
+        self.lstboxUsers = ListBox(self.editWin, x=10, y=30, width=180, height=160, fontsize=13)
+        self.lstboxUserGroup = ListBox(self.editWin, x=10, y=220, width=180, height=150, fontsize=13)
+        self.lblUser = Label(self.editWin, text='User', x=10, y=10, width=90, height=20, fontsize=13)
+        self.lblGroup = Label(self.editWin, text='User Groups', x=10, y=196, width=160, height=20, fontsize=13)
+        self.lstboxUsersInGroup = ListBox(self.editWin, x=240, y=220, width=180, height=150, fontsize=13)
+        self.userInfoBtnEdit = Button(self.editWin, text='Show User Info', x=220, y=110, width=90, height=35, command=showUserInfo)
+        self.deleteBtnEdit = Button(self.editWin, text='Delete', x=220, y=150, width=90, height=35, command=deleteUser)
+        self.lblUserGroup = Label(self.editWin, text='Users in Group', x=240, y=196, width=160, height=20, fontsize=13)
+        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=220, height=40, fontsize=16)
+        self.PasswordTxt = TextBox(self.editWin, x=560, y=30, width=220, height=40, fontsize=16)
+        self.lblinfoUsername = Label(self.editWin, text='Username', x=330, y=10, width=200, height=20, fontsize=13)
+        self.lblinfoPassword = Label(self.editWin, text='Password', x=560, y=10, width=200, height=20, fontsize=13)
+        self.chbAddUser = CheckBox(self.editWin, text='Add User', x=330, y=80, width=240, height=20)
+        self.chbAddUserGroup = CheckBox(self.editWin, text='Add User Group', x=330, y=110, width=240, height=20)
+        self.chbAddUserToGroup = CheckBox(self.editWin, text='Add selected User to selected User Group', x=330, y=140, width=240, height=20)
+
+    def close(self) -> None:
+        """Closes the editwindow"""
+
+        self.editWin.destroy()
+
+    def show(self) -> None:
+        """Shows the editwin"""
+
         self.editWin.show()
 
 
@@ -141,40 +151,68 @@ class User:
     """User class, You will be able to register with username and pw, data of user will be accesed by username str in database
     as a new column"""
 
-    def __init__(self, username: str, password: str, balance: str=0) -> None:
+    def __init__(self, username: str, password: str, balance: str = 0) -> None:
         self._username = username
         self._password = password
         self._balance = balance
         if not self.userExists():
-            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+            self.registerUser()
         if self.username == 'global' and self.password == '':
             b = dtbUser.readUserDtb()
-            for balance in b:
-                if balance[0] != 'global':
-                    self.balance += balance[2]
+            for bal in b:
+                if bal[0] != 'global':
+                    self.balance += bal[2]
     
+    def registerUser(self):
+        """registers the user, adds them to dtb and json file(global group)"""
+
+        dtbUser.dataEntryUser(self.username, self.password, self.balance)
+        self.addToGroup('global')
+
+    def addToGroup(self, group: str, path: str='C:/tmp/ExpenseTracker/groups.json'):
+        """Adds user to group, stored in json file"""
+
+        with open(path) as file:
+            data = json.load(file)
+            data['groups'][group] == data['groups'][group].append(self.username)
+
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)
+
     @property
     def balance(self):
+        """@property balance"""
+
         return self._balance
 
     @balance.setter
     def balance(self, value):
+        """balance setter"""
+
         self._balance = value
 
     @property
     def username(self) -> str:
+        """@property username"""
+
         return self._username
 
     @username.setter
     def username(self, value) -> None:
+        """username setter"""
+
         self._username = value
 
     @property
     def password(self) -> str:
+        """@property password"""
+
         return self._password
 
     @password.setter
     def password(self, value) -> None:
+        """password setter"""
+
         self._password = value
 
     def userExists(self) -> bool:
@@ -246,9 +284,8 @@ class DataBase:
         """Enters data into a database"""
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
-        self.cursor.execute(
-                'INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, username))
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, username))
         self.conn.commit()
 
     def dataEntryUser(self, username: str, password: str, balance: str) -> None:
@@ -324,7 +361,7 @@ class DataBase:
         self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def readUserDtb(self, username: str=None, arg: str = None) -> list:
+    def readUserDtb(self, username: str=None, arg: str=None) -> list:
         """Reads Username, Password and Balance"""
         if arg == 'noBank':
             self.cursor.execute('SELECT Username, Password FROM ' + self.table)
@@ -332,9 +369,8 @@ class DataBase:
         elif username is not None:
             self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
             return self.cursor.fetchall()
-        else:
-            self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table)
-            return self.cursor.fetchall()
+        self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table)
+        return self.cursor.fetchall()
 
 
     def update(self, rowid: int, name: str, price: float, moreInfo: str) -> None:
@@ -375,10 +411,14 @@ class Button(QtWidgets.QPushButton):
 
     @property
     def text(self) -> str:
+        """@property text"""
+
         return self._text
 
     @text.setter
     def text(self, value) -> None:
+        """text.setter"""
+
         self._text = value
         self.button.setText(self._text)
 
@@ -401,10 +441,14 @@ class TextBox(QtWidgets.QLineEdit):
 
     @property
     def text(self) -> str:
+        """@property balance"""
+
         return self._text
 
     @text.setter
     def text(self, value: str) -> None:
+        """text.setter"""
+
         self._text = value
         self.textbox.setText(value)
 
@@ -430,6 +474,8 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         self.listbox.installEventFilter(self)
 
     def eventFilter(self, obj, event) -> bool:
+        """event filter for lstbox, responsible for focus1, focus2..."""
+
         global DELCMD
         if event.type() == QtCore.QEvent.FocusIn:
             if obj == lstbox.listbox:
@@ -517,9 +563,8 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 addListToDtb(price, name, expenseTime, moreInfo)
                 expMultiTxt.text = 1
             return True
-        else:
-            msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
-            return False
+        msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
+        return False
 
     def insertItems(self, row: int, *args: str) -> None:
         """Inserts all Items specified as args"""
@@ -569,18 +614,26 @@ class CheckBox(QtWidgets.QCheckBox, QtWidgets.QAbstractButton):
 
     @property
     def command(self) -> callable:
+        """@property command"""
+
         return self._command
 
     @command.setter
     def command(self, func: callable) -> None:
+        """command.setter"""
+
         self._command = func
 
     @property
     def text(self) -> str:
+        """@property text"""
+
         return self._text
 
     @text.setter
     def text(self, text: str) -> None:
+        """text.setter"""
+
         self._text = text
         self.checkbox.setText(self._text)
 
@@ -663,14 +716,20 @@ class PlainText(QtWidgets.QPlainTextEdit):
 
     @property
     def text(self) -> str:
+        """@property text"""
+
         return self._text
 
     @text.setter
     def text(self, value: str) -> None:
+        """text.setter"""
+
         self._text = value
         self.plain.setPlainText(value)
 
     def eventFilter(self, obj, event) -> bool:
+        """Event filter for plaintext, responsible for removing DEFAULTTEXT"""
+
         if event.type() == QtCore.QEvent.FocusIn:
             if self.text == DEFAULTPLAINTEXT:
                 self.text = ''
@@ -701,10 +760,14 @@ class Label(QtWidgets.QLabel):
 
     @property
     def text(self) -> str:
+        """@property text"""
+
         return self._text
 
     @text.setter
     def text(self, value: str) -> None:
+        """text.setter"""
+
         self._text = value
         self.label.setText(value)
 
@@ -728,10 +791,14 @@ class SpinBox(QtWidgets.QSpinBox):
 
     @property
     def text(self) -> str:
+        """@property text"""
+
         return self._value
 
     @text.setter
     def text(self, value: str) -> None:
+        """text.setter"""
+
         self._text = value
         self.spinbox.setValue(value)
 
@@ -742,6 +809,15 @@ class SpinBox(QtWidgets.QSpinBox):
 
 
 def updateLbls(focus: int=None):
+    """Updates lbls, 
+    if focus == 1:
+        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
+        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
+    else:
+        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
+        lblBrutto.text = f'Your monthly brutto budget: {str(calculateIncome())}{comboBoxCur.getText().split(" ")[1]}'
+        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])"""
+
     if focus == 1:
         lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
@@ -906,6 +982,8 @@ def isFirstTime() -> bool:
 
 
 def restart() -> None:
+    """restarts application"""
+
     execl(sys.executable, sys.executable, *sys.argv)
 
 
@@ -952,17 +1030,17 @@ def showUserToExpense():
         if english:
             if expenses[3] is not 'global':
                 QtWidgets.QMessageBox.information(mainWin,
-                'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
+                                                  'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
-                'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
+                                                  'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
             if expenses[3] is not 'global':
                 QtWidgets.QMessageBox.information(mainWin,
-                'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
+                                                  'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
-                'User', f'Der algemeine Benutzer hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
+                                                  'User', f'Der algemeine Benutzer hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
     
 
 def readFromTxtFile(pa: str, typ: str):
@@ -975,8 +1053,7 @@ def readFromTxtFile(pa: str, typ: str):
             elif typ == 'str':
                 r = f.readline()
                 return r
-            else:
-                raise ValueError('Invalid type!')
+            raise ValueError('Invalid type!')
     except FileNotFoundError:
         f = open(pa, 'w+')
         f.close()
@@ -1011,6 +1088,8 @@ def calculateBank() -> float:
 
 
 def setBankBalance() -> float:
+    """sets bankBalance, also sets user.balance"""
+
     if english:
         inpt, okpressed = QtWidgets.QInputDialog.getDouble(None, 'Get Bank Deposit', 'Please enter your current bank balance',
                                                            min=0, decimals=2)
@@ -1022,11 +1101,12 @@ def setBankBalance() -> float:
         dtbUser.cursor.execute('Update User SET BankBalance = ? WHERE Username = ?', (user.balance, user.username))
         dtbUser.conn.commit()
         return float(user.balance)
-    else:
-        exit()
+    exit()
 
 
 def setBankBalanceBtn():
+    """btn handler to set balance"""
+
     setBankBalance()
     updateLbls()
     restart()
@@ -1195,6 +1275,8 @@ def showGraph(t: str, tile: str, xaxis: str, yaxis: str) -> None:
 
 
 def showYearGraph() -> None:
+    """btn handler for showing yearly graph"""
+
     if english:
         showGraph('year', 'Expenses of the last year', 'month', 'price')
     elif german:
@@ -1202,6 +1284,8 @@ def showYearGraph() -> None:
 
 
 def showMonthGraph() -> None:
+    """btn handler for showing monthly graph"""
+
     if english:
         showGraph('month', 'Expenses of the last month', 'days', 'price')
     elif german:
@@ -1229,17 +1313,25 @@ def createFiles() -> None:
 
 
 def chb1CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
     chbOneTime.unckeckAny(False, chbMonthly, chbTakings, chbTakingsMonth)
 
 
 def chb2CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
     chbMonthly.unckeckAny(False, chbOneTime, chbTakings, chbTakingsMonth)
 
 
 def chb3CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
     chbTakings.unckeckAny(False, chbMonthly, chbOneTime, chbTakingsMonth)
 
 def chb4CommandHandler() -> None:
+    """chbCommandHandler, unchecks any other chbs"""
+
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
 
@@ -1267,6 +1359,45 @@ def edit() -> None:
             editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
             editWin.expInfoEdit.text = str(values[2])
         editWin.show()
+
+
+def userEdit():
+    """Function used to handle the editor for the users"""
+
+    #I had to use the global statement for the window so it doesnt get destroyed immideately when I try to open it
+    global userWin
+    userWin = UserEditor()
+
+    for data in dtbUser.readUserDtb():
+        userWin.lstboxUsers.insertItems(0, f'"{data[0]}", "{data[1]}", {data[2]}')
+
+    with open(path + 'groups.json') as file:
+        groups = json.load(file)
+
+    for group in groups['groups']:
+        userWin.lstboxUserGroup.insertItems(0, group)
+
+    userWin.show()
+
+
+def addUser():
+    """chb1.checked: Adds user to lstbox, dtbase
+       chh2.checked: Adds user group
+       chb3.checked: Adds selected user to user group"""
+
+
+def editUser():
+    """In User lstbox focus: Messabebox: Username, Password, Balance with next, ok, cancel btns"""
+
+
+def deleteUser():
+    """In user lstbox focus: removes User and all instances of him in groups
+       In userGroup focus: removes group
+       In usersInGroup focus: delete user from group"""
+
+
+def showUserInfo():
+    """messagebox showing when it was added, name and balance"""
 
 
 if __name__ == '__main__':
@@ -1391,23 +1522,20 @@ if __name__ == '__main__':
 
     # Buttons
     addBtn = Button(mainWin, text='Add', command=addItem, x=230, y=100, height=35, width=90, key='Return')
-    delBtn = Button(mainWin, text='Delete', command=delSelectedItem, x=230, y=140, height=35, width=90,
-                    key='Delete')
-    dupBtn = Button(mainWin, text='Duplicate', command=dupSelectedItem, x=230, y=180, height=35, width=90,
-                    key='Ctrl+D')
+    delBtn = Button(mainWin, text='Delete', command=delSelectedItem, x=230, y=140, height=35, width=90, key='Delete')
+    dupBtn = Button(mainWin, text='Duplicate', command=dupSelectedItem, x=230, y=180, height=35, width=90, key='Ctrl+D')
     editBtn = Button(mainWin, text='Edit', command=edit, x=230, y=240, height=35, width=90, key='Ctrl+E')
-    dirBtn = Button(mainWin, text='Select\nDirec-\ntory', command=selectDirMoveFiles, x=1150, y=530, height=70,
-                    width=50)
+    dirBtn = Button(mainWin, text='Select\nDirec-\ntory', command=selectDirMoveFiles, x=1150, y=530, height=70, width=50)
     clearBtn = Button(mainWin, text='Clear List', command=clearD, x=230, y=280, height=35, width=90, key='Ctrl+C')
-    moreInfoBtn = Button(mainWin, text='More Info', command=showExpenseInfo, x=230, y=340, height=35, width=90,
-                         key='Ctrl+F')
-    showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35,
-                             width=90)
-    showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35,
-                              width=90)
-    if user.username != 'global':
-        setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35,
-                            width=90)
+    moreInfoBtn = Button(mainWin, text='More Info', command=showExpenseInfo, x=230, y=340, height=35, width=90, key='Ctrl+F')
+    showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35, width=90)
+    showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35, width=90)
+
+    if user.username == 'global':
+        editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
+    else:
+        setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
+        
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
 
     # start the app
