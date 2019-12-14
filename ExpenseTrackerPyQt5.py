@@ -169,18 +169,8 @@ class User:
         """registers the user, adds them to dtb and json file(global group)"""
 
         dtbUser.dataEntryUser(self.username, self.password, self.balance)
-        self.addUserToGroup('global', '')
-
-    def addUserToGroup(self, group: str, groupPW: str, path: str='C:/tmp/groups.json'):
-        """Adds user to group, stored in json file"""
-
-        with open(path) as file:
-            data = json.load(file)
-            data['groups'][group] == data['groups'][group].insert(0, groupPW)
-            data['groups'][group] == data['groups'][group].append(self.username)
-
-        with open(path, 'w') as file:
-            json.dump(data, file, indent=4)
+        addUserToGroup('global', self.username)
+        addGroupPW('global', '')
 
     @property
     def balance(self):
@@ -529,9 +519,9 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 return True
         return False
 
-    def add(self, expenseTime: (str, tuple), txt: str = None, currselect: tuple = None, index: int = 0) -> bool:
+    def add(self, expenseTime: (str, tuple), txt: str = None, currselect: tuple = None, index: int = 0, window=None) -> bool:
         """Adds items into listbox.
-        Valid expenseTime: ('dup', 'once'), ('dup', 'month'), 'once', 'month', 'taking', 'user'"""
+        Valid expenseTime: ('dup', 'once'), ('dup', 'month'), 'once', 'month', 'taking', 'user', 'user group', 'user to group'"""
 
         global userWin
         if isinstance(expenseTime, tuple):
@@ -547,7 +537,7 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 moreInfo = dtbMonth.getRowValuesById(currselect[0], 3)
             addListToDtb(float(price), name, expTime, moreInfo)
             return True
-        if expenseTime == 'user' or 'usergroup':
+        if expenseTime in ('user', 'user group'):
             name = userWin.UsernameTxt.getText()
             password = userWin.PasswordTxt.getText()
             if expenseTime == 'user':
@@ -572,12 +562,16 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                     balance = float(0)
             elif expenseTime == 'user group':
                 pass
+            elif expenseTime == 'user to group':
+                curselectUser = window.lstboxUsers.curselection()
+                curselectUserInGroup = window.lstboxUsersInGroup.curselection()
             else:
                 expprice = float(expprice)
                 multiplier = int(expmultiplier)
         except:
             msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
             return False
+            
         if expenseTime == 'user':
             self.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(balance, name, password))
             addListToDtb(price=password, exp=name, t=expenseTime, moreInfo=balance)
@@ -585,6 +579,12 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         elif expenseTime == 'user group':
             self.insertItems(0, f'"{name}", "{password}"')
             addListToJson(name=name, password=password)
+            return True
+        elif expenseTime == 'user to group':
+            name = window.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
+            group = window.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+            self.insertItems(0, name)
+            addUserToGroup(group, name)
             return True
         elif expname and expprice != '':
             for _ in range(multiplier):
@@ -1415,13 +1415,26 @@ def chb7CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
 
     global userWin
+    userWin.chbAddUserToGroup.unckeckAny(False, userWin.chbAddUserGroup, userWin.chbAddUser)
+
+    userWin.lstboxUsersInGroup.listbox.clear()
     userWin.UsernameTxt.textbox.hide()
     userWin.PasswordTxt.textbox.hide()
     userWin.BalanceTxt.textbox.hide()
     userWin.lblinfoUsername.label.hide()
     userWin.lblinfoPassword.label.hide()
     userWin.lblinfoBalance.label.hide()
-    userWin.chbAddUserToGroup.unckeckAny(False, userWin.chbAddUserGroup, userWin.chbAddUser)
+
+    curselectUser = userWin.lstboxUsers.curselection()
+    curselectUserGroup = userWin.lstboxUserGroup.curselection()
+    try:
+        selection = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+    except AttributeError:
+        # QtWidgets.QMessageBox.information(userWin, 'No selection', 'Please select a user and a user group to display')
+        return
+    jsonData = readFromJson()['groups'][selection]
+    for data in jsonData:
+        userWin.lstboxUsersInGroup.insertItems(0, data)
 
 
 def edit() -> None:
@@ -1450,13 +1463,31 @@ def edit() -> None:
         editWin.show()
 
 
-def readGroupPW(groupName):
+def readFromJson(pa: str='C:/tmp/groups.json'):
     """Reads the password from the group and returns it"""
 
-    with open('C:/tmp/groups.json') as file:
+    with open(pa) as file:
+        return json.load(file)
+
+
+def addUserToGroup(group: str, username: str, path: str='C:/tmp/groups.json'):
+    """Adds user to group, stored in json file"""
+    with open(path) as file:
         data = json.load(file)
-    
-    return data['passwords'][groupName]
+
+        data['groups'][group] == data['groups'][group].append(username)
+
+    with open(path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+
+def addGroupPW(group: str, groupPW: str, path: str='C:/tmp/groups.json') -> None:
+    """Adds group to json file"""
+
+    with open(path) as file:
+        data = json.load(file)
+
+        data['groups'][group] == data['groups'][group].insert(0, groupPW)
 
 
 def userEdit():
@@ -1474,7 +1505,8 @@ def userEdit():
         groups = json.load(file)
 
     for group in groups['groups']:
-        userWin.lstboxUserGroup.insertItems(0, f'"{group}", "{readGroupPW(group)}"')
+        pw = readFromJson()['passwords'][group]
+        userWin.lstboxUserGroup.insertItems(0, f'"{group}", "{pw}"')
 
     userWin.show()
 
@@ -1494,8 +1526,11 @@ def addUser():
             updateLbls()
     elif userWin.chbAddUserGroup.checkbox.isChecked():
         if userWin.lstboxUserGroup.add('user group'):
+            userWin.UsernameTxt.text = ''
+            userWin.PasswordTxt.text = ''
+    elif userWin.chbAddUserToGroup.checkbox.isChecked():
+        if userWin.lstboxUsersInGroup.add('user to group', window=userWin):
             pass
-
 
 
 def editUser():
