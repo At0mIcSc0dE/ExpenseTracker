@@ -169,13 +169,14 @@ class User:
         """registers the user, adds them to dtb and json file(global group)"""
 
         dtbUser.dataEntryUser(self.username, self.password, self.balance)
-        self.addToGroup('global')
+        self.addUserToGroup('global', '')
 
-    def addToGroup(self, group: str, path: str='C:/tmp/groups.json'):
+    def addUserToGroup(self, group: str, groupPW: str, path: str='C:/tmp/groups.json'):
         """Adds user to group, stored in json file"""
 
         with open(path) as file:
             data = json.load(file)
+            data['groups'][group] == data['groups'][group].insert(0, groupPW)
             data['groups'][group] == data['groups'][group].append(self.username)
 
         with open(path, 'w') as file:
@@ -546,10 +547,11 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 moreInfo = dtbMonth.getRowValuesById(currselect[0], 3)
             addListToDtb(float(price), name, expTime, moreInfo)
             return True
-        if expenseTime == 'user':
+        if expenseTime == 'user' or 'usergroup':
             name = userWin.UsernameTxt.getText()
             password = userWin.PasswordTxt.getText()
-            balance = userWin.BalanceTxt.getText()
+            if expenseTime == 'user':
+                balance = userWin.BalanceTxt.getText()
         else:
             expname = expNameTxt.getText()
             expprice = expPriceTxt.getText()
@@ -568,6 +570,8 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                     balance = float(balance)
                 else:
                     balance = float(0)
+            elif expenseTime == 'user group':
+                pass
             else:
                 expprice = float(expprice)
                 multiplier = int(expmultiplier)
@@ -577,6 +581,10 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         if expenseTime == 'user':
             self.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(balance, name, password))
             addListToDtb(price=password, exp=name, t=expenseTime, moreInfo=balance)
+            return True
+        elif expenseTime == 'user group':
+            self.insertItems(0, f'"{name}", "{password}"')
+            addListToJson(name=name, password=password)
             return True
         elif expname and expprice != '':
             for _ in range(multiplier):
@@ -983,6 +991,19 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
         dtbUser.dataEntryUser(exp, price, moreInfo)
     else:
         raise ValueError
+
+
+def addListToJson(name: str, password: str) -> None:
+    """Adds name and password to groups.json"""
+
+    with open('C:/tmp/groups.json') as file:
+        data = json.load(file)
+
+    data['groups'][name] = []
+    data['passwords'][name] = password
+
+    with open('C:/tmp/groups.json', 'w') as file:
+        json.dump(data, file, indent=4)
 
 
 def isFirstTime() -> bool:
@@ -1429,10 +1450,19 @@ def edit() -> None:
         editWin.show()
 
 
+def readGroupPW(groupName):
+    """Reads the password from the group and returns it"""
+
+    with open('C:/tmp/groups.json') as file:
+        data = json.load(file)
+    
+    return data['passwords'][groupName]
+
+
 def userEdit():
     """Function used to handle the editor for the users"""
 
-    #I had to use the global statement for the window so it doesnt get destroyed immideately when I try to open it
+    # I had to use the global statement for the window so it doesnt get destroyed immediately when I try to open it
     global userWin
     userWin = UserEditor()
     userWin.chbAddUser.check()
@@ -1444,7 +1474,7 @@ def userEdit():
         groups = json.load(file)
 
     for group in groups['groups']:
-        userWin.lstboxUserGroup.insertItems(0, group)
+        userWin.lstboxUserGroup.insertItems(0, f'"{group}", "{readGroupPW(group)}"')
 
     userWin.show()
 
@@ -1463,7 +1493,8 @@ def addUser():
             userWin.BalanceTxt.text = ''
             updateLbls()
     elif userWin.chbAddUserGroup.checkbox.isChecked():
-        pass
+        if userWin.lstboxUserGroup.add('user group'):
+            pass
 
 
 
