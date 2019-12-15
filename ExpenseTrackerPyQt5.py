@@ -157,13 +157,22 @@ class User:
         self._username = username
         self._password = password
         self._balance = balance
+
+        if self.username in groups:
+            usersInGroup = readFromJson()['groups'][self.username]
+            balances = []
+
+            for user in usersInGroup:
+                data = dtbUser.readUserDtb(username=user)
+                balances.append(dtbUser.readUserDtb(username=user)[0][2])# get me the balance of the user with the name from dtb
+            
+            for bal in balances:
+                self.balance += float(bal)
+
         if not self.userExists():
             self.registerUser()
-        if self.username == 'global' and self.password == '':
-            b = dtbUser.readUserDtb()
-            for bal in b:
-                if bal[0] != 'global':
-                    self.balance += float(bal[2])
+
+        
     
     def registerUser(self):
         """registers the user, adds them to dtb and json file(global group)"""
@@ -218,16 +227,10 @@ class User:
         for user in users:
             if curUser == user:
                 return True
+            elif curUser[1] != user[1]:
+                reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
+                restart() if reply == QtWidgets.QMessageBox.Ok else exit()
         return False
-
-    def belongsTo(self, dtbElements: list) -> list:
-        """Returns all the elements that belong to the user"""
-
-        results = []
-        for element in dtbElements:
-            if str(element[3]) == self.username:
-                results.append(element)
-        return results
 
 
 class Group:
@@ -244,7 +247,7 @@ class Group:
         
         return data['groups'][self.groupName]
 
-    def addUserToGroup(gself, username: str, path: str='C:/tmp/groups.json'):
+    def addUserToGroup(self, username: str, path: str='C:/tmp/groups.json'):
         """Adds user to group, stored in json file"""
         with open(path) as file:
             data = json.load(file)
@@ -519,12 +522,8 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         global userWin
         try:
             if self == userWin.lstboxUserGroup:
-<<<<<<< HEAD
                 group = Group(current.text().split(',')[0].strip('"'))
                 users = group.getUsersFromGroup()
-=======
-                users = getUsersFromGroup(current.text().split(',')[0].strip('"'))
->>>>>>> 2b9b8123d0a603f09238a8e968e193947dd0fb15
                 userWin.lstboxUsersInGroup.listbox.clear()
                 for user in users:
                     userWin.lstboxUsersInGroup.insertItems(0, user)
@@ -1517,38 +1516,6 @@ def readFromJson(pa: str='C:/tmp/groups.json'):
         return json.load(file)
 
 
-<<<<<<< HEAD
-=======
-def getUsersFromGroup(group: str, pa: str='C:/tmp/groups.json') -> list:
-    """Returns a list of all the users in the group"""
-
-    with open(pa) as file:
-        data = json.load(file)
-    
-    return data['groups'][group]
-
-
-def addUserToGroup(group: str, username: str, path: str='C:/tmp/groups.json'):
-    """Adds user to group, stored in json file"""
-    with open(path) as file:
-        data = json.load(file)
-
-        data['groups'][group] == data['groups'][group].append(username)
-
-    with open(path, 'w') as file:
-        json.dump(data, file, indent=4)
-
-
-def addGroupPW(group: str, groupPW: str, path: str='C:/tmp/groups.json') -> None:
-    """Adds group to json file"""
-
-    with open(path) as file:
-        data = json.load(file)
-
-        data['groups'][group] == data['groups'][group].insert(0, groupPW)
-
-
->>>>>>> 2b9b8123d0a603f09238a8e968e193947dd0fb15
 def userEdit():
     """Function used to handle the editor for the users"""
 
@@ -1606,6 +1573,16 @@ def showUserInfo():
     """messagebox showing when it was added, name and balance"""
 
 
+def belongsToUser(username, dtbElements: list) -> list:
+    """Returns all the elements that belong to the user"""
+
+    results = []
+    for element in dtbElements:
+        if str(element[3]) == username:
+            results.append(element)
+    return results
+
+
 if __name__ == '__main__':
     # Initialize main app
     app = QtWidgets.QApplication(argv)
@@ -1657,25 +1634,52 @@ if __name__ == '__main__':
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
     
-    # Get the belonging items from user
-    if user.username != 'global':
-        dataOnce = user.belongsTo(dtbOnce.readFromDtb())
-        dataMonth = user.belongsTo(dtbMonth.readFromDtb())
-        dataTakings = user.belongsTo(dtbTakings.readFromDtb())
-        dataTakingsMonth = user.belongsTo(dtbTakingsMonth.readFromDtb())
+    dataOnce = []
+    dataMonth = []
+    dataTakings = []
+    dataTakingsMonth = []
+    if user.username in groups:
+        for grp in groups:
+            if user.username == grp:
+                group = Group(grp)
+                usersInGroup = group.getUsersFromGroup()
+                for usr in usersInGroup:
+                    users = dtbUser.readUserDtb()
+                    for us in users:
+                        if us[0] == group.groupName:
+                            users = us
+
+                    dataOnce.append(belongsToUser(usr, dtbOnce.readFromDtb()))
+                    dataMonth.append(belongsToUser(usr, dtbMonth.readFromDtb()))
+                    dataTakings.append(belongsToUser(usr, dtbTakings.readFromDtb()))
+                    dataTakingsMonth.append(belongsToUser(usr, dtbTakingsMonth.readFromDtb()))
+
     else:
-        dataOnce = dtbOnce.readFromDtb()
-        dataMonth = dtbMonth.readFromDtb()
-        dataTakings = dtbTakings.readFromDtb()
-        dataTakingsMonth = dtbTakingsMonth.readFromDtb()
+        dataOnce.append(belongsToUser(user.username, dtbOnce.readFromDtb()))
+        dataMonth.append(belongsToUser(user.username, dtbMonth.readFromDtb()))
+        dataTakings.append(belongsToUser(user.username, dtbTakings.readFromDtb()))
+        dataTakingsMonth.append(belongsToUser(user.username, dtbTakingsMonth.readFromDtb()))
+
     for data in dataOnce:
-        lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+        try:
+            lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+        except IndexError:
+            pass
     for data in dataMonth:
-        lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
+        try:
+            lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+        except IndexError:
+            pass
     for data in dataTakings:
-        lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
+        try:
+            lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+        except IndexError:
+            pass
     for data in dataTakingsMonth:
-        lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(float(data[1]), data[0], comboBoxCur.getText().split(" ")[1]))
+        try:
+            lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+        except IndexError:
+            pass
 
     # All the first Time things like creating files and entering config data
     if isFirstTime():
