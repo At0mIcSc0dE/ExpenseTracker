@@ -169,8 +169,9 @@ class User:
         """registers the user, adds them to dtb and json file(global group)"""
 
         dtbUser.dataEntryUser(self.username, self.password, self.balance)
-        addUserToGroup('global', self.username)
-        addGroupPW('global', '')
+        group = Group('global')
+        group.addUserToGroup(self.username)
+        group.addGroupPW('')
 
     @property
     def balance(self):
@@ -213,7 +214,11 @@ class User:
 
         users = dtbUser.readUserDtb(arg='noBank')
         curUser = (self.username, self.password)
-        return True if curUser in users else False
+        # return True if curUser in users else False
+        for user in users:
+            if curUser == user:
+                return True
+        return False
 
     def belongsTo(self, dtbElements: list) -> list:
         """Returns all the elements that belong to the user"""
@@ -223,6 +228,39 @@ class User:
             if str(element[3]) == self.username:
                 results.append(element)
         return results
+
+
+class Group:
+    """Class group, can read, write to json, manages global group and users of group"""
+
+    def __init__(self, groupName: str):
+        self.groupName = groupName
+
+    def getUsersFromGroup(self, pa: str='C:/tmp/groups.json') -> list:
+        """Returns a list of all the users in the group"""
+
+        with open(pa) as file:
+            data = json.load(file)
+        
+        return data['groups'][self.groupName]
+
+    def addUserToGroup(gself, username: str, path: str='C:/tmp/groups.json'):
+        """Adds user to group, stored in json file"""
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].append(username)
+
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def addGroupPW(self, groupPW: str, path: str='C:/tmp/groups.json') -> None:
+        """Adds groupPW to json file"""
+
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
 
 
 class DataBase:
@@ -470,7 +508,31 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
         self.listbox.setFont(self.font)
+
+        # please install event signals like the one below before event filters!
+        self.listbox.currentItemChanged.connect(self.itemChanged)
         self.listbox.installEventFilter(self)
+
+    def itemChanged(self, current: QtWidgets.QListWidgetItem, previous: QtWidgets.QListWidgetItem):
+        """Event handler for item changed signal, updates userWin.lstboxUsersInGroup"""
+
+        global userWin
+        try:
+            if self == userWin.lstboxUserGroup:
+                group = Group(current.text().split(',')[0].strip('"'))
+                users = group.getUsersFromGroup()
+                userWin.lstboxUsersInGroup.listbox.clear()
+                for user in users:
+                    userWin.lstboxUsersInGroup.insertItems(0, user)
+        except NameError:
+            pass
+
+    def lstboxCleaner(self, *args):
+        """clears lstbox focus and selection"""
+
+        for lst in args:
+            lst.clearFocus()
+            lst.clearSelection()
 
     def eventFilter(self, obj, event) -> bool:
         """event filter for lstbox, responsible for focus1, focus2..."""
@@ -478,42 +540,22 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         global DELCMD
         if event.type() == QtCore.QEvent.FocusIn:
             if obj == lstbox.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
-                lstboxTakings.listbox.clearFocus()
-                lstboxTakings.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstboxMonth, lstboxTakings)
                 print('focus1')
                 DELCMD = 'focus1'
                 return True
             elif obj == lstboxMonth.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxTakings.listbox.clearFocus()
-                lstboxTakings.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstbox, lstboxTakings)
                 print('focus2')
                 DELCMD = 'focus2'
                 return True
             elif obj == lstboxTakings.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstboxMonth, lstbox)
                 print('focus3')
                 DELCMD = 'focus3'
                 return True
             elif obj == lstboxTakingsMonth.listbox:
-                lstboxTakings.clearFocus()
-                lstboxTakings.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
+                self.lstboxCleaner(lstbox, lstboxMonth, lstboxTakings)
                 print('focus4')
                 DELCMD = 'focus4'
                 return True
@@ -582,9 +624,10 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             return True
         elif expenseTime == 'user to group':
             name = window.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
-            group = window.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+            groupName = window.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
             self.insertItems(0, name)
-            addUserToGroup(group, name)
+            group = Group(groupName)
+            group.addUserToGroup(name)
             return True
         elif expname and expprice != '':
             for _ in range(multiplier):
@@ -988,7 +1031,7 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     elif t == 'takingMonth':
         dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'user':
-        dtbUser.dataEntryUser(exp, price, moreInfo)
+        User(exp, price, moreInfo)
     else:
         raise ValueError
 
@@ -1066,14 +1109,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] is not 'global':
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] is not 'global':
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -1464,30 +1507,10 @@ def edit() -> None:
 
 
 def readFromJson(pa: str='C:/tmp/groups.json'):
-    """Reads the password from the group and returns it"""
+    """Reads json and returns it"""
 
     with open(pa) as file:
         return json.load(file)
-
-
-def addUserToGroup(group: str, username: str, path: str='C:/tmp/groups.json'):
-    """Adds user to group, stored in json file"""
-    with open(path) as file:
-        data = json.load(file)
-
-        data['groups'][group] == data['groups'][group].append(username)
-
-    with open(path, 'w') as file:
-        json.dump(data, file, indent=4)
-
-
-def addGroupPW(group: str, groupPW: str, path: str='C:/tmp/groups.json') -> None:
-    """Adds group to json file"""
-
-    with open(path) as file:
-        data = json.load(file)
-
-        data['groups'][group] == data['groups'][group].insert(0, groupPW)
 
 
 def userEdit():
@@ -1502,9 +1525,9 @@ def userEdit():
         userWin.lstboxUsers.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(data[2], data[0], data[1]))
 
     with open('C:/tmp/groups.json') as file:
-        groups = json.load(file)
+        data = json.load(file)
 
-    for group in groups['groups']:
+    for group in data['groups']:
         pw = readFromJson()['passwords'][group]
         userWin.lstboxUserGroup.insertItems(0, f'"{group}", "{pw}"')
 
@@ -1561,12 +1584,9 @@ if __name__ == '__main__':
     german = False
     english = True
     with open('C:/tmp/groups.json') as file:
-        json = json.load(file)
-    # for key, value in json['groups'].items():
-    #     groups.append(key)
-    # groups = [json[key] for key in json]
-    groups = [key for key, value in json['groups'].items()]
-    print(groups)
+        jsonGroups = json.load(file)
+
+    groups = [key for key, value in jsonGroups['groups'].items()]
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -1600,6 +1620,8 @@ if __name__ == '__main__':
     # Check wether the month has ended
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
+    
+    # Get the belonging items from user
     if user.username != 'global':
         dataOnce = user.belongsTo(dtbOnce.readFromDtb())
         dataMonth = user.belongsTo(dtbMonth.readFromDtb())
