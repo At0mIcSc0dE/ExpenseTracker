@@ -213,7 +213,11 @@ class User:
 
         users = dtbUser.readUserDtb(arg='noBank')
         curUser = (self.username, self.password)
-        return True if curUser in users else False
+        # return True if curUser in users else False
+        for user in users:
+            if curUser == user:
+                return True
+        return False
 
     def belongsTo(self, dtbElements: list) -> list:
         """Returns all the elements that belong to the user"""
@@ -470,7 +474,30 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
         self.listbox.setFont(self.font)
+
+        # please install event signals like the one below before event filters!
+        self.listbox.currentItemChanged.connect(self.itemChanged)
         self.listbox.installEventFilter(self)
+
+    def itemChanged(self, current: QtWidgets.QListWidgetItem, previous: QtWidgets.QListWidgetItem):
+        """Event handler for item changed signal, updates userWin.lstboxUsersInGroup"""
+
+        global userWin
+        try:
+            if self == userWin.lstboxUserGroup:
+                users = getUsersFromGroup(current.text().split(',')[0].strip('"'))
+                userWin.lstboxUsersInGroup.listbox.clear()
+                for user in users:
+                    userWin.lstboxUsersInGroup.insertItems(0, user)
+        except NameError:
+            pass
+
+    def lstboxCleaner(self, *args):
+        """clears lstbox focus and selection"""
+
+        for lst in args:
+            lst.clearFocus()
+            lst.clearSelection()
 
     def eventFilter(self, obj, event) -> bool:
         """event filter for lstbox, responsible for focus1, focus2..."""
@@ -478,42 +505,22 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         global DELCMD
         if event.type() == QtCore.QEvent.FocusIn:
             if obj == lstbox.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
-                lstboxTakings.listbox.clearFocus()
-                lstboxTakings.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstboxMonth, lstboxTakings)
                 print('focus1')
                 DELCMD = 'focus1'
                 return True
             elif obj == lstboxMonth.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxTakings.listbox.clearFocus()
-                lstboxTakings.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstbox, lstboxTakings)
                 print('focus2')
                 DELCMD = 'focus2'
                 return True
             elif obj == lstboxTakings.listbox:
-                lstboxTakingsMonth.clearFocus()
-                lstboxTakingsMonth.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
+                self.lstboxCleaner(lstboxTakingsMonth, lstboxMonth, lstbox)
                 print('focus3')
                 DELCMD = 'focus3'
                 return True
             elif obj == lstboxTakingsMonth.listbox:
-                lstboxTakings.clearFocus()
-                lstboxTakings.clearSelection()
-                lstbox.listbox.clearFocus()
-                lstbox.listbox.clearSelection()
-                lstboxMonth.listbox.clearFocus()
-                lstboxMonth.listbox.clearSelection()
+                self.lstboxCleaner(lstbox, lstboxMonth, lstboxTakings)
                 print('focus4')
                 DELCMD = 'focus4'
                 return True
@@ -988,7 +995,7 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     elif t == 'takingMonth':
         dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'user':
-        dtbUser.dataEntryUser(exp, price, moreInfo)
+        User(exp, price, moreInfo)
     else:
         raise ValueError
 
@@ -1464,10 +1471,19 @@ def edit() -> None:
 
 
 def readFromJson(pa: str='C:/tmp/groups.json'):
-    """Reads the password from the group and returns it"""
+    """Reads json and returns it"""
 
     with open(pa) as file:
         return json.load(file)
+
+
+def getUsersFromGroup(group: str, pa: str='C:/tmp/groups.json') -> list:
+    """Returns a list of all the users in the group"""
+
+    with open(pa) as file:
+        data = json.load(file)
+    
+    return data['groups'][group]
 
 
 def addUserToGroup(group: str, username: str, path: str='C:/tmp/groups.json'):
@@ -1502,9 +1518,9 @@ def userEdit():
         userWin.lstboxUsers.insertItems(0, '"{1}", "{2}", "{0:.2f}"'.format(data[2], data[0], data[1]))
 
     with open('C:/tmp/groups.json') as file:
-        groups = json.load(file)
+        data = json.load(file)
 
-    for group in groups['groups']:
+    for group in data['groups']:
         pw = readFromJson()['passwords'][group]
         userWin.lstboxUserGroup.insertItems(0, f'"{group}", "{pw}"')
 
@@ -1561,12 +1577,9 @@ if __name__ == '__main__':
     german = False
     english = True
     with open('C:/tmp/groups.json') as file:
-        json = json.load(file)
-    # for key, value in json['groups'].items():
-    #     groups.append(key)
-    # groups = [json[key] for key in json]
-    groups = [key for key, value in json['groups'].items()]
-    print(groups)
+        jsonGroups = json.load(file)
+
+    groups = [key for key, value in jsonGroups['groups'].items()]
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
