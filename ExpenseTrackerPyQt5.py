@@ -169,8 +169,9 @@ class User:
         """registers the user, adds them to dtb and json file(global group)"""
 
         dtbUser.dataEntryUser(self.username, self.password, self.balance)
-        addUserToGroup('global', self.username)
-        addGroupPW('global', '')
+        group = Group('global')
+        group.addUserToGroup(self.username)
+        group.addGroupPW('')
 
     @property
     def balance(self):
@@ -227,6 +228,39 @@ class User:
             if str(element[3]) == self.username:
                 results.append(element)
         return results
+
+
+class Group:
+    """Class group, can read, write to json, manages global group and users of group"""
+
+    def __init__(self, groupName: str):
+        self.groupName = groupName
+
+    def getUsersFromGroup(self, pa: str='C:/tmp/groups.json') -> list:
+        """Returns a list of all the users in the group"""
+
+        with open(pa) as file:
+            data = json.load(file)
+        
+        return data['groups'][self.groupName]
+
+    def addUserToGroup(gself, username: str, path: str='C:/tmp/groups.json'):
+        """Adds user to group, stored in json file"""
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].append(username)
+
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def addGroupPW(self, groupPW: str, path: str='C:/tmp/groups.json') -> None:
+        """Adds groupPW to json file"""
+
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
 
 
 class DataBase:
@@ -485,7 +519,12 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         global userWin
         try:
             if self == userWin.lstboxUserGroup:
+<<<<<<< HEAD
+                group = Group(current.text().split(',')[0].strip('"'))
+                users = group.getUsersFromGroup()
+=======
                 users = getUsersFromGroup(current.text().split(',')[0].strip('"'))
+>>>>>>> 2b9b8123d0a603f09238a8e968e193947dd0fb15
                 userWin.lstboxUsersInGroup.listbox.clear()
                 for user in users:
                     userWin.lstboxUsersInGroup.insertItems(0, user)
@@ -589,9 +628,10 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             return True
         elif expenseTime == 'user to group':
             name = window.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
-            group = window.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+            groupName = window.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
             self.insertItems(0, name)
-            addUserToGroup(group, name)
+            group = Group(groupName)
+            group.addUserToGroup(name)
             return True
         elif expname and expprice != '':
             for _ in range(multiplier):
@@ -1073,14 +1113,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] is not 'global':
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] is not 'global':
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -1477,6 +1517,8 @@ def readFromJson(pa: str='C:/tmp/groups.json'):
         return json.load(file)
 
 
+<<<<<<< HEAD
+=======
 def getUsersFromGroup(group: str, pa: str='C:/tmp/groups.json') -> list:
     """Returns a list of all the users in the group"""
 
@@ -1506,6 +1548,7 @@ def addGroupPW(group: str, groupPW: str, path: str='C:/tmp/groups.json') -> None
         data['groups'][group] == data['groups'][group].insert(0, groupPW)
 
 
+>>>>>>> 2b9b8123d0a603f09238a8e968e193947dd0fb15
 def userEdit():
     """Function used to handle the editor for the users"""
 
@@ -1613,6 +1656,8 @@ if __name__ == '__main__':
     # Check wether the month has ended
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
+    
+    # Get the belonging items from user
     if user.username != 'global':
         dataOnce = user.belongsTo(dtbOnce.readFromDtb())
         dataMonth = user.belongsTo(dtbMonth.readFromDtb())
