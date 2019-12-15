@@ -1560,6 +1560,13 @@ if __name__ == '__main__':
     dirfile = 'C:/tmp/dir.txt'
     german = False
     english = True
+    with open('C:/tmp/groups.json') as file:
+        json = json.load(file)
+    # for key, value in json['groups'].items():
+    #     groups.append(key)
+    # groups = [json[key] for key in json]
+    groups = [key for key, value in json['groups'].items()]
+    print(groups)
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
