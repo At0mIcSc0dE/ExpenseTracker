@@ -226,10 +226,10 @@ class User:
         # return True if curUser in users else False
         for user in users:
             if curUser == user:
+                if curUser[1] != user[1]:
+                    reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
+                    restart() if reply == QtWidgets.QMessageBox.Ok else exit()
                 return True
-            elif curUser[1] != user[1]:
-                reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
-                restart() if reply == QtWidgets.QMessageBox.Ok else exit()
         return False
 
 
@@ -280,7 +280,7 @@ class Group:
         
         return data['groups'][self.groupName]
 
-    def addUserToGroup(gself, username: str, path: str='C:/tmp/groups.json'):
+    def addUserToGroup(self, username: str, path: str='C:/tmp/groups.json'):
         """Adds user to group, stored in json file"""
         with open(path) as file:
             data = json.load(file)
@@ -917,14 +917,7 @@ class SpinBox(QtWidgets.QSpinBox):
 
 
 def updateLbls(focus: int=None):
-    """Updates lbls, 
-    if focus == 1:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
-    else:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
-        lblBrutto.text = f'Your monthly brutto budget: {str(calculateIncome())}{comboBoxCur.getText().split(" ")[1]}'
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])"""
+    """Updates lbls"""
 
     if focus == 1:
         lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
@@ -1058,6 +1051,7 @@ def selectDirMoveFiles() -> None:
 def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     """Adds parameters to database"""
 
+    global user
     if t == 'once':
         dtbOnce.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'month':
@@ -1067,7 +1061,7 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     elif t == 'takingMonth':
         dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'user':
-        User(exp, price, moreInfo)
+        user = User(exp, price, moreInfo)
     else:
         raise ValueError
 
@@ -1667,12 +1661,6 @@ if __name__ == '__main__':
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
     
-    # Get the belonging items from user
-    if user.username != 'global':
-        dataOnce = user.belongsTo(dtbOnce.readFromDtb())
-        dataMonth = user.belongsTo(dtbMonth.readFromDtb())
-        dataTakings = user.belongsTo(dtbTakings.readFromDtb())
-        dataTakingsMonth = user.belongsTo(dtbTakingsMonth.readFromDtb())
     dataOnce = []
     dataMonth = []
     dataTakings = []
