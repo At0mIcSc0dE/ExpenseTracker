@@ -1226,10 +1226,10 @@ def clearD() -> None:
         updateLbls()
 
 
-def changeLanguageEnglish(eng: bool) -> None:
+def changeLanguageEnglish(win=None) -> None:
     """Changes language to english"""
 
-    if not eng:
+    try:
         addBtn.text = 'Add'
         delBtn.text = 'Delete'
         clearBtn.text = 'Clear'
@@ -1253,40 +1253,66 @@ def changeLanguageEnglish(eng: bool) -> None:
         lblTakings.text = 'One-Time Takings'
         lblMonthlyTakings.text = 'Monthly Income Sources'
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
-        setBankBtn.text = 'Set Balance'
         if user.username == 'global':
             editUserBtn.text = 'Edit Users'
+        if win:
+            win.addBtnEdit.text = 'Add'
+            win.editBtnEdit.text = 'Edit'
+            win.lblGroup.text = 'User Groups'
+            win.lblUser.text = 'User'
+            win.userInfoBtnEdit.text = 'Show User info'
+            win.deleteBtnEdit.text = 'Delete'
+            win.lblinfoUsername.text = 'Username'
+            win.lblinfoPassword.text = 'Password'
+            win.chbAddUser.text = 'Add User'
+            win.chbAddUserGroup.text = 'Add User Group'
+            win.chbAddUserToGroup.text = 'Add selected User to selected User Group'
+            win.lblinfoBalance.text = 'Bank Balance'
+            win.lblUserGroup.text = 'Users in Group'
+    except NameError:
+        pass
 
 
-
-def changeLanguageGerman(ger: bool) -> None:
+def changeLanguageGerman(win=None) -> None:
     """Changes language to german"""
 
-    if not ger:
-        addBtn.text = 'Hinzufügen'
-        delBtn.text = 'Löschen'
-        clearBtn.text = 'Alles löschen'
-        dirBtn.text = 'Verzeich-\nnis än-\ndern'
-        dupBtn.text = 'Duplizieren'
-        editBtn.text = 'Editieren'
-        showExpGraph_30.text = '30 Tage Graph'
-        showExpGraph_365.text = '1 Jahr Graph'
-        chbOneTime.text = 'Einmalige Ausgaben'
-        chbMonthly.text = 'Monatliche Ausgaben'
-        chbTakings.text = 'Einnahmen'
-        chbTakingsMonth.text = 'Monatliche Einnahmen'
-        lblBrutto.text = 'Ihr brutto Einkommen: ' + lblBrutto.text.split(':')[1].strip()
-        lblNetto.text = 'Ihr überbleibendes Geld:               ' + lblNetto.text.split(':')[1].strip()
-        lblinfoPrice.text = 'Preis'
-        lblinfoMulti.text = 'Multiplikator'
-        lbloneTime.text = 'Einmalige Ausgaben'
-        lblmonthly.text = 'Monatliche Ausgaben'
-        lblTakings.text = 'Einnahmen'
-        lblMonthlyTakings.text = 'Monatliche Einnahmen'
-        lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
-        setBankBtn.text = 'Guthaben'
-        if user.username == 'global':
-            editUserBtn.text = 'Benutzer verwalten'
+    addBtn.text = 'Hinzufügen'
+    delBtn.text = 'Löschen'
+    clearBtn.text = 'Alles löschen'
+    dirBtn.text = 'Verzeich-\nnis än-\ndern'
+    dupBtn.text = 'Duplizieren'
+    editBtn.text = 'Editieren'
+    showExpGraph_30.text = '30 Tage Graph'
+    showExpGraph_365.text = '1 Jahr Graph'
+    chbOneTime.text = 'Einmalige Ausgaben'
+    chbMonthly.text = 'Monatliche Ausgaben'
+    chbTakings.text = 'Einnahmen'
+    chbTakingsMonth.text = 'Monatliche Einnahmen'
+    lblBrutto.text = 'Ihr brutto Einkommen: ' + lblBrutto.text.split(':')[1].strip()
+    lblNetto.text = 'Ihr überbleibendes Geld:               ' + lblNetto.text.split(':')[1].strip()
+    lblinfoPrice.text = 'Preis'
+    lblinfoMulti.text = 'Multiplikator'
+    lbloneTime.text = 'Einmalige Ausgaben'
+    lblmonthly.text = 'Monatliche Ausgaben'
+    lblTakings.text = 'Einnahmen'
+    lblMonthlyTakings.text = 'Monatliche Einnahmen'
+    lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
+    if user.username == 'global':
+        editUserBtn.text = 'Benutzer verwalten'
+    if win:
+        win.addBtnEdit.text = 'Hinzufügen'
+        win.editBtnEdit.text = 'Editieren'
+        win.lblGroup.text = 'Benutzer Gruppen'
+        win.lblUser.text = 'Benutzer'
+        win.userInfoBtnEdit.text = 'Zeig Benutzer Info'
+        win.deleteBtnEdit.text = 'Löschen'
+        win.lblinfoUsername.text = 'Benutzername'
+        win.lblinfoPassword.text = 'Passwort'
+        win.chbAddUser.text = 'Benutzer hinzufügen'
+        win.chbAddUserGroup.text = 'Benutzergruppe hinzufügen'
+        win.chbAddUserToGroup.text = 'Benutzer zur Gruppe hizufügen'
+        win.lblinfoBalance.text = 'Bankguthaben'
+        win.lblUserGroup.text = 'Benutzer in Gruppe'
 
 
 def isMonthEnd() -> bool:
