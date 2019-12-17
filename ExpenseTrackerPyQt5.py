@@ -226,11 +226,44 @@ class User:
         # return True if curUser in users else False
         for user in users:
             if curUser == user:
+                if curUser[1] != user[1]:
+                    reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
+                    restart() if reply == QtWidgets.QMessageBox.Ok else exit()
                 return True
-            elif curUser[1] != user[1]:
-                reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
-                restart() if reply == QtWidgets.QMessageBox.Ok else exit()
         return False
+
+
+class Group:
+    """Class group, can read, write to json, manages global group and users of group"""
+
+    def __init__(self, groupName: str):
+        self.groupName = groupName
+
+    def getUsersFromGroup(self, pa: str='C:/tmp/groups.json') -> list:
+        """Returns a list of all the users in the group"""
+
+        with open(pa) as file:
+            data = json.load(file)
+        
+        return data['groups'][self.groupName]
+
+    def addUserToGroup(self, username: str, path: str='C:/tmp/groups.json'):
+        """Adds user to group, stored in json file"""
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].append(username)
+
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def addGroupPW(self, groupPW: str, path: str='C:/tmp/groups.json') -> None:
+        """Adds groupPW to json file"""
+
+        with open(path) as file:
+            data = json.load(file)
+
+            data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
 
 
 class Group:
@@ -884,14 +917,7 @@ class SpinBox(QtWidgets.QSpinBox):
 
 
 def updateLbls(focus: int=None):
-    """Updates lbls, 
-    if focus == 1:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
-    else:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
-        lblBrutto.text = f'Your monthly brutto budget: {str(calculateIncome())}{comboBoxCur.getText().split(" ")[1]}'
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])"""
+    """Updates lbls"""
 
     if focus == 1:
         lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
@@ -1025,6 +1051,7 @@ def selectDirMoveFiles() -> None:
 def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     """Adds parameters to database"""
 
+    global user
     if t == 'once':
         dtbOnce.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'month':
@@ -1034,7 +1061,7 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
     elif t == 'takingMonth':
         dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
     elif t == 'user':
-        User(exp, price, moreInfo)
+        user = User(exp, price, moreInfo)
     else:
         raise ValueError
 
