@@ -163,8 +163,12 @@ class User:
             balances = []
 
             for user in usersInGroup:
-                data = dtbUser.readUserDtb(username=user)
-                balances.append(dtbUser.readUserDtb(username=user)[0][2])# get me the balance of the user with the name from dtb
+                if user not in groups:
+                    data = dtbUser.readUserDtb(username=user)
+                    try:
+                        balances.append(dtbUser.readUserDtb(username=user)[0][2])
+                    except IndexError:
+                        pass
             
             for bal in balances:
                 self.balance += float(bal)
@@ -266,39 +270,6 @@ class Group:
             data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
 
 
-class Group:
-    """Class group, can read, write to json, manages global group and users of group"""
-
-    def __init__(self, groupName: str):
-        self.groupName = groupName
-
-    def getUsersFromGroup(self, pa: str='C:/tmp/groups.json') -> list:
-        """Returns a list of all the users in the group"""
-
-        with open(pa) as file:
-            data = json.load(file)
-        
-        return data['groups'][self.groupName]
-
-    def addUserToGroup(self, username: str, path: str='C:/tmp/groups.json'):
-        """Adds user to group, stored in json file"""
-        with open(path) as file:
-            data = json.load(file)
-
-            data['groups'][self.groupName] == data['groups'][self.groupName].append(username)
-
-        with open(path, 'w') as file:
-            json.dump(data, file, indent=4)
-
-    def addGroupPW(self, groupPW: str, path: str='C:/tmp/groups.json') -> None:
-        """Adds groupPW to json file"""
-
-        with open(path) as file:
-            data = json.load(file)
-
-            data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
-
-
 class DataBase:
     """Database class, no inheritance"""
 
@@ -320,6 +291,25 @@ class DataBase:
                             Year INTEGER,
                             PRIMARY KEY(ID)
                             )''')
+
+    def updateBalance(self, balance: (int, str), *usernames: str) -> None:
+        """Updates all balances and writes them to DTB:"""
+
+        for user in usernames:
+            self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, user[0][0]))
+            self.conn.commit()
+
+    def getUsers(self):
+        """returns list of all usernames"""
+
+        self.cursor.execute('SELECT Username FROM ' + self.table)
+        return self.cursor.fetchall()
+
+    def getUserBalance(self, username: str):
+        """returns the balance of the user"""
+
+        self.cursor.execute('SELECT BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
+        return self.cursor.fetchall()
 
     def getRowValuesById(self, rowid: int, *elemIndex: int):
         """Enter the ID by which the record is stored and the function will return you a list if you want multiple elements
@@ -397,12 +387,12 @@ class DataBase:
     def cal(self) -> float:
         """Calculation of totalExpenses"""
 
-        msgbox = QtWidgets.QMessageBox()
-        msgbox.setIcon(QtWidgets.QMessageBox.Critical)
-        msgbox.setWindowTitle('Invalid Input')
-        msgbox.setText('Invalid Input, try again!')
-        msgbox.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
-        if user.username == 'global' and user.password == '':
+        # msgbox = QtWidgets.QMessageBox()
+        # msgbox.setIcon(QtWidgets.QMessageBox.Critical)
+        # msgbox.setWindowTitle('Invalid Input')
+        # msgbox.setText('Invalid Input, try again!')
+        # msgbox.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
+        if user.username == globalUser:
             self.cursor.execute('SELECT Price FROM ' + self.table)
             expenses = self.cursor.fetchall()
         else:
@@ -410,16 +400,17 @@ class DataBase:
             expenses = self.cursor.fetchall()
         totalExpense = 0
         for expense in expenses:
-            while True:
-                try:
-                    expense = str(expense[0])
-                    for L, l in zip(ascii_uppercase, ascii_lowercase):
-                        expense = expense.strip(L)
-                        expense = expense.strip(l)
-                    totalExpense += float(expense)
-                    break
-                except ValueError:
-                    msgbox.show()
+            # while True:
+            #     try:
+            #         expense = str(expense[0])
+            #         for L, l in zip(ascii_uppercase, ascii_lowercase):
+            #             expense = expense.strip(L)
+            #             expense = expense.strip(l)
+            #         totalExpense += float(expense)
+            #         break
+            #     except ValueError:
+            #         msgbox.show()
+            totalExpense += float(expense[0])
         return totalExpense
 
     def readFromDtb(self) -> list:
@@ -1139,14 +1130,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] != 'global':
+            if expenses[3] != globalUser:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] != 'global':
+            if expenses[3] != globalUser:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -1192,19 +1183,22 @@ def calculateIncome() -> float:
 def calculateBank() -> float:
     """Returns the money left from your bank ballance"""
 
-    try:            # float(user.balance)
-        return round(calculateBalanceOfAllUsers() + calculateIncome() - dtbOnce.cal() - dtbMonth.cal(), 2)
+    try:
+        balance = 0
+        for usr in dtbUser.getUsers():
+            if usr[0] == user.username:
+                if usr[0] in groups:
+
+                    with open('C:/tmp/groups.json') as file:
+                        data = json.load(file)
+
+                    for us in data['groups'][usr[0]]:
+                        balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome() - dtbOnce.cal() - dtbMonth.cal()
+                    break
+                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome() - dtbOnce.cal() - dtbMonth.cal()
+        return round(balance, 2)
     except TypeError:
         return setBankBalance()
-
-
-def calculateBalanceOfAllUsers() -> float:
-    """returns a float with the current user balance. Reads from dtbUser"""
-
-    retval = 0
-    for data in dtbUser.readUserDtb():
-        retval += data[2]
-    return retval
 
 
 def setBankBalance() -> float:
@@ -1280,7 +1274,7 @@ def changeLanguageEnglish(win=None) -> None:
         lblTakings.text = 'One-Time Takings'
         lblMonthlyTakings.text = 'Monthly Income Sources'
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
-        if user.username == 'global':
+        if user.username == globalUser:
             editUserBtn.text = 'Edit Users'
         if win:
             win.addBtnEdit.text = 'Add'
@@ -1324,7 +1318,7 @@ def changeLanguageGerman(win=None) -> None:
     lblTakings.text = 'Einnahmen'
     lblMonthlyTakings.text = 'Monatliche Einnahmen'
     lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
-    if user.username == 'global':
+    if user.username == globalUser:
         editUserBtn.text = 'Benutzer verwalten'
     if win:
         win.addBtnEdit.text = 'Hinzufügen'
@@ -1369,7 +1363,9 @@ def monthEnd() -> bool:
         msgbox = QtWidgets.QMessageBox(mainWin)
         msgbox.setIcon(QtWidgets.QMessageBox.Information)
         msgbox.setWindowTitle('New month!')
-        writeToTxtFile(path + 'Bank.txt', str(calculateBank()))
+
+        dtbUser.updateBalance(calculateBank(), dtbUser.getUsers())
+
         for data in dtbOnce.getAllRecords():
             dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
             dtbOnce.clearDtb()
@@ -1377,7 +1373,7 @@ def monthEnd() -> bool:
             dtbTakings.clearDtb()
             lstboxTakings.listbox.clear()
             msgbox.information(msgbox, 'New Month',
-                               'A new month has begun, all One-Time-Expenses and Takings were deleted!')
+                            'A new month has begun, all One-Time-Expenses and Takings were deleted!')
         return True
     return False
 
@@ -1609,7 +1605,7 @@ def addUser():
             userWin.PasswordTxt.text = ''
     elif userWin.chbAddUserToGroup.checkbox.isChecked():
         if userWin.lstboxUsersInGroup.add('user to group', window=userWin):
-            pass
+            updateLbls()
 
 
 def editUser():
@@ -1652,7 +1648,7 @@ if __name__ == '__main__':
     with open('C:/tmp/groups.json') as file:
         jsonGroups = json.load(file)
 
-    groups = [key for key, value in jsonGroups['groups'].items()]
+    groups = [key for key, _ in jsonGroups['groups'].items()]
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -1676,6 +1672,7 @@ if __name__ == '__main__':
     name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
     pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
     user = User(name, pw)
+    globalUser = dtbUser.readUserDtb()[0][0]
 
     # Drop down menu for currency
     comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
@@ -1701,36 +1698,44 @@ if __name__ == '__main__':
                     for us in users:
                         if us[0] == group.groupName:
                             users = us
-
-                    dataOnce.append(belongsToUser(usr, dtbOnce.readFromDtb()))
-                    dataMonth.append(belongsToUser(usr, dtbMonth.readFromDtb()))
-                    dataTakings.append(belongsToUser(usr, dtbTakings.readFromDtb()))
-                    dataTakingsMonth.append(belongsToUser(usr, dtbTakingsMonth.readFromDtb()))
+                    
+                    for data in belongsToUser(usr, dtbOnce.readFromDtb()):
+                        dataOnce.append(data)
+                    for data in belongsToUser(usr, dtbMonth.readFromDtb()):
+                        dataMonth.append(data)
+                    for data in belongsToUser(usr, dtbTakings.readFromDtb()):
+                        dataTakings.append(data)
+                    for data in belongsToUser(usr, dtbTakingsMonth.readFromDtb()):
+                        dataTakingsMonth.append(data)
 
     else:
-        dataOnce.append(belongsToUser(user.username, dtbOnce.readFromDtb()))
-        dataMonth.append(belongsToUser(user.username, dtbMonth.readFromDtb()))
-        dataTakings.append(belongsToUser(user.username, dtbTakings.readFromDtb()))
-        dataTakingsMonth.append(belongsToUser(user.username, dtbTakingsMonth.readFromDtb()))
+        for data in belongsToUser(user.username, dtbOnce.readFromDtb()):
+            dataOnce.append(data)
+        for data in belongsToUser(user.username, dtbMonth.readFromDtb()):
+            dataMonth.append(data)
+        for data in belongsToUser(user.username, dtbTakings.readFromDtb()):
+            dataTakings.append(data)
+        for data in belongsToUser(user.username, dtbTakingsMonth.readFromDtb()):
+            dataTakingsMonth.append(data)
 
     for data in dataOnce:
         try:
-            lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+            lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
         except IndexError:
             pass
     for data in dataMonth:
         try:
-            lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+            lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
         except IndexError:
             pass
     for data in dataTakings:
         try:
-            lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+            lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
         except IndexError:
             pass
     for data in dataTakingsMonth:
         try:
-            lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[0][1], data[0][0], comboBoxCur.getText().split(" ")[1]))
+            lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
         except IndexError:
             pass
 
@@ -1747,12 +1752,13 @@ if __name__ == '__main__':
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
     else:
         expenseDtbPath = path + 'Expenses.db'
-        if user.username != 'global':
+        if user.username != globalUser:
             user.balance = dtbUser.readUserDtb(user.username)[0][2]
         
     # Textboxes
     expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16)
     expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16)
+    mainWin.setTabOrder(expNameTxt, expPriceTxt) #! not working! "QWidget::setTabOrder: 'first' and 'second' must be in the same window"
 
     # SpinBox for Multiplier
     expMultiTxt = SpinBox(mainWin, text=1, x=350, y=190, width=70, height=30, mincount=1)
@@ -1800,7 +1806,7 @@ if __name__ == '__main__':
     showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35, width=90)
     showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35, width=90)
 
-    if user.username == 'global':
+    if user.username == globalUser:
         editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
     else:
         setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
