@@ -20,7 +20,6 @@ from datetime import datetime
 from sqlite3 import connect
 from matplotlib.pyplot import plot, legend, title, xlabel, ylabel, show
 from concurrent.futures import ThreadPoolExecutor
-from string import ascii_lowercase, ascii_uppercase
 import json
 
 
@@ -292,11 +291,10 @@ class DataBase:
                             PRIMARY KEY(ID)
                             )''')
 
-    def updateBalance(self, balance: (int, str), *usernames: str) -> None:
+    def updateBalance(self, balance: (int, str), username: str) -> None:
         """Updates all balances and writes them to DTB:"""
-
-        for user in usernames:
-            self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, user[0][0]))
+        if username not in groups:
+            self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
             self.conn.commit()
 
     def getUsers(self):
@@ -384,32 +382,20 @@ class DataBase:
         self.cursor.execute('UPDATE ' + self.table + ' SET ID = ? WHERE ID = ?', (index[0], row[0]))
         self.conn.commit()
 
-    def cal(self) -> float:
+    def cal(self, userName: str='') -> float:
         """Calculation of totalExpenses"""
 
-        # msgbox = QtWidgets.QMessageBox()
-        # msgbox.setIcon(QtWidgets.QMessageBox.Critical)
-        # msgbox.setWindowTitle('Invalid Input')
-        # msgbox.setText('Invalid Input, try again!')
-        # msgbox.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
-        if user.username == globalUser:
+        if userName == '':
+            userName = user.username
+
+        if userName == globalUser:
             self.cursor.execute('SELECT Price FROM ' + self.table)
             expenses = self.cursor.fetchall()
         else:
-            self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (user.username, ))
+            self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (userName, ))
             expenses = self.cursor.fetchall()
         totalExpense = 0
         for expense in expenses:
-            # while True:
-            #     try:
-            #         expense = str(expense[0])
-            #         for L, l in zip(ascii_uppercase, ascii_lowercase):
-            #             expense = expense.strip(L)
-            #             expense = expense.strip(l)
-            #         totalExpense += float(expense)
-            #         break
-            #     except ValueError:
-            #         msgbox.show()
             totalExpense += float(expense[0])
         return totalExpense
 
@@ -1168,34 +1154,44 @@ def writeToTxtFile(pa: str, text: str) -> None:
         f.write(str(text))
 
 
-def calculateResult() -> float:
+def calculateResult(userName: str='') -> float:
     """Returns the end result of the expense calculation"""
 
-    return round(calculateIncome() - (dtbOnce.cal() + dtbMonth.cal()), 2)
+    if userName == '':
+        userName = user.username
+
+    return round(calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName)), 2)
 
 
-def calculateIncome() -> float:
+def calculateIncome(userName: str='') -> float:
     """Returns the sum of all the monthly income sources"""
+    
+    if userName == '':
+        userName = user.username
 
-    return round(dtbTakingsMonth.cal() + dtbTakings.cal(), 2)
+    return round(dtbTakingsMonth.cal(userName) + dtbTakings.cal(userName), 2)
 
 
-def calculateBank() -> float:
+def calculateBank(userName: str='') -> float:
     """Returns the money left from your bank ballance"""
 
     try:
+        if userName == '':
+            userName = user.username
+
         balance = 0
         for usr in dtbUser.getUsers():
-            if usr[0] == user.username:
+            if usr[0] == userName: #user.username
                 if usr[0] in groups:
 
                     with open('C:/tmp/groups.json') as file:
                         data = json.load(file)
 
                     for us in data['groups'][usr[0]]:
-                        balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome() - dtbOnce.cal() - dtbMonth.cal()
+                        balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
                     break
-                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome() - dtbOnce.cal() - dtbMonth.cal()
+                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
+                break
         return round(balance, 2)
     except TypeError:
         return setBankBalance()
@@ -1364,7 +1360,8 @@ def monthEnd() -> bool:
         msgbox.setIcon(QtWidgets.QMessageBox.Information)
         msgbox.setWindowTitle('New month!')
 
-        dtbUser.updateBalance(calculateBank(), dtbUser.getUsers())
+        for user in dtbUser.getUsers():
+            dtbUser.updateBalance(calculateBank(user[0]), user[0])
 
         for data in dtbOnce.getAllRecords():
             dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
