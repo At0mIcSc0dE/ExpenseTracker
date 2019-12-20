@@ -355,16 +355,22 @@ class DataBase:
         self.cursor.execute('DELETE FROM ' + self.table)
         self.conn.commit()
 
-    def removeFromDtb(self, currselect: int) -> None:
+    def removeFromDtb(self, currselect: int=None, username: str=None) -> None:
         """Removes item with the reversed rowid from listbox"""
-
-        self.cursor.execute('SELECT ID FROM ' + self.table)
-        rws = self.cursor.fetchall()
-        rws = rws[::-1]
-        rw = rws[currselect]
-        self.cursor.execute('DELETE FROM ' + self.table + ' WHERE ID = ?', (str(rw[0]),))
-        self.conn.commit()
-        self.updateId()
+        if currselect is not None:
+            self.cursor.execute('SELECT ID FROM ' + self.table)
+            rws = self.cursor.fetchall()
+            rws = rws[::-1]
+            rw = rws[currselect]
+            self.cursor.execute('DELETE FROM ' + self.table + ' WHERE ID = ?', (str(rw[0]),))
+            self.conn.commit()
+            self.updateId()
+        elif username is not None:
+            self.cursor.execute('DELETE FROM ' + self.table + ' WHERE Username = ?', (username, ))
+            self.conn.commit()
+            self.updateId()
+        else:
+            raise ValueError('Please either input currselect or username')
 
     def updateId(self) -> None:
         """Updates IDs because if you delete ID=1 then ID=2 will then be the first element in the dtb"""
@@ -539,18 +545,19 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                     userWin.lstboxUsersInGroup.insertItems(0, user)
         except NameError:
             pass
-
-    def lstboxCleaner(self, *args):
+    
+    @staticmethod
+    def lstboxCleaner(*listboxes):
         """clears lstbox focus and selection"""
 
-        for lst in args:
+        for lst in listboxes:
             lst.clearFocus()
             lst.clearSelection()
 
     def eventFilter(self, obj, event) -> bool:
         """event filter for lstbox, responsible for focus1, focus2..."""
 
-        global DELCMD
+        global DELCMD, userWin
         if event.type() == QtCore.QEvent.FocusIn:
             if obj == lstbox.listbox:
                 self.lstboxCleaner(lstboxTakingsMonth, lstboxMonth, lstboxTakings)
@@ -914,28 +921,28 @@ def delSelectedItem() -> None:
     currselectTakingsMonth = lstboxTakingsMonth.curselection()
     if DELCMD == 'focus1' and currselectOnce != -1:
         try:
-            dtbOnce.removeFromDtb(currselectOnce)
+            dtbOnce.removeFromDtb(currselect=currselectOnce)
             lstbox.delete(currselectOnce)
             updateLbls(1)
         except IndexError:
             return
     elif DELCMD == 'focus2' and currselectMonth != -1:
         try:
-            dtbMonth.removeFromDtb(currselectMonth)
+            dtbMonth.removeFromDtb(currselect=currselectMonth)
             lstboxMonth.delete(currselectMonth)
             updateLbls(1)
         except IndexError:
             return
     elif DELCMD == 'focus3' and currselectTakings != -1:
         try:
-            dtbTakings.removeFromDtb(currselectTakings)
+            dtbTakings.removeFromDtb(currselect=currselectTakings)
             lstboxTakings.delete(currselectTakings)
             updateLbls()
         except IndexError:
             return
     elif DELCMD == 'focus4' and currselectTakingsMonth != -1:
         try:
-            dtbTakingsMonth.removeFromDtb(currselectTakingsMonth)
+            dtbTakingsMonth.removeFromDtb(currselect=currselectTakingsMonth)
             lstboxTakingsMonth.delete(currselectTakingsMonth)
             updateLbls()
         except IndexError:
@@ -1613,6 +1620,72 @@ def deleteUser():
     """In user lstbox focus: removes User and all instances of him in groups
        In userGroup focus: removes group
        In usersInGroup focus: delete user from group"""
+
+    global userWin
+    currselectUser = userWin.lstboxUsers.curselection()
+    currselectGroup = userWin.lstboxUserGroup.curselection()
+    currselectUserInGroup = userWin.lstboxUsersInGroup.curselection()
+
+    if userWin.chbAddUser.checkbox.isChecked() and currselectUser != -1:
+        with open('C:/tmp/groups.json') as file:
+            data = json.load(file)
+
+        text = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
+        if text != globalUser:
+            for group in data['groups']:
+                try:
+                    data['groups'][group].remove(text)
+                except ValueError:
+                    pass
+            
+            with open('C:/tmp/groups.json', 'w') as file:
+                json.dump(data, file, indent=4)
+            userWin.lstboxUsers.delete(currselectUser)
+            dtbUser.removeFromDtb(currselect=currselectUser)
+            dtbOnce.removeFromDtb(username=text)
+            dtbMonth.removeFromDtb(username=text)
+            dtbTakings.removeFromDtb(username=text)
+            dtbTakingsMonth.removeFromDtb(username=text)
+        else:
+            QtWidgets.QMessageBox.critical(None, 'Failed', "You can't delete the global user")
+        restart()
+
+    elif userWin.chbAddUserGroup.checkbox.isChecked() and currselectGroup != -1:
+        with open('C:/tmp/groups.json') as file:
+            data = json.load(file)
+
+        text = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+
+        if text != globalUser:
+            data['groups'].pop(text)
+            data['passwords'].pop(text)
+
+            with open('C:/tmp/groups.json', 'w') as file:
+                json.dump(data, file, indent=4)
+            userWin.lstboxUserGroup.delete(currselectGroup)
+            dtbUser.removeFromDtb(username=text)
+            dtbOnce.removeFromDtb(username=text)
+            dtbMonth.removeFromDtb(username=text)
+            dtbTakings.removeFromDtb(username=text)
+            dtbTakingsMonth.removeFromDtb(username=text)
+        else:
+            QtWidgets.QMessageBox.critical(None, 'Failed', "You can't delete the global group")
+        restart()
+
+    elif userWin.chbAddUserToGroup.checkbox.isChecked()and currselectUserInGroup != -1:
+        with open('C:/tmp/groups.json') as file:
+            data = json.load(file)
+
+        text = userWin.lstboxUsersInGroup.listbox.currentItem().text().split(',')[0].strip('"')
+        if userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') != globalUser:
+            data['groups'][userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')].remove(text)
+
+            with open('C:/tmp/groups.json', 'w') as file:
+                json.dump(data, file, indent=4)
+            userWin.lstboxUsersInGroup.delete(currselectUserInGroup)
+        else:
+            QtWidgets.QMessageBox.critical(None, 'Failed', "You can't remove users from global group!")
+        restart()
 
 
 def showUserInfo():
