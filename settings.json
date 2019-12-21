@@ -64,5 +64,6 @@
     "telemetry.enableTelemetry": false,
     "editor.suggest.snippetsPreventQuickSuggestions": false,
     "editor.suggest.insertMode": "replace", // replaces the text to the right of the insertion
-    "editor.tabCompletion": "on"
+    "editor.tabCompletion": "on",
+    "editor.suggest.localityBonus": true
 }
