@@ -46,6 +46,17 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         """closes all windows"""
 
+        dtbOnce.cursor.close()
+        dtbOnce.conn.close()
+        dtbMonth.cursor.close()
+        dtbMonth.conn.close()
+        dtbTakings.cursor.close()
+        dtbTakings.conn.close()
+        dtbTakingsMonth.cursor.close()
+        dtbTakingsMonth.conn.close()
+        dtbOldOnce.cursor.close()
+        dtbOldOnce.conn.close()
+
         self.app.closeAllWindows()
 
 
@@ -161,6 +172,7 @@ class User:
             usersInGroup = readFromJson()['groups'][self.username]
             balances = []
 
+            # assignes balance for the group
             for user in usersInGroup:
                 if user not in groups:
                     data = dtbUser.readUserDtb(username=user)
@@ -173,17 +185,25 @@ class User:
                 self.balance += float(bal)
 
         if not self.userExists():
-            self.registerUser()
-
-        
+            if self.username in groups:
+                self.registerUser(group=True)
+            else:
+                self.registerUser()
     
-    def registerUser(self):
+    def registerUser(self, group: bool=False):
         """registers the user, adds them to dtb and json file(global group)"""
+        if group:
+            with open('C:/tmp/groups.json') as file:
+                data = json.load(file)
+            
+            self.password = data['passwords'][self.username]
 
-        dtbUser.dataEntryUser(self.username, self.password, self.balance)
-        group = Group('global')
-        group.addUserToGroup(self.username)
-        group.addGroupPW('')
+            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+        else:
+            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+            group = Group('global')
+            group.addUserToGroup(self.username)
+            group.addGroupPW('')
 
     @property
     def balance(self):
@@ -228,12 +248,12 @@ class User:
         curUser = (self.username, self.password)
         # return True if curUser in users else False
         for user in users:
-            if curUser == user:
+            if curUser[0] == user[0]:
                 if curUser[1] != user[1]:
                     reply = QtWidgets.QMessageBox.critical(None, 'Invalid', 'Invalid password or username, try again?', QtWidgets.QMessageBox.Ok|QtWidgets.QMessageBox.Cancel)
                     restart() if reply == QtWidgets.QMessageBox.Ok else exit()
-                return True
-        return False
+                else:
+                    return True
 
 
 class Group:
@@ -931,7 +951,7 @@ def updateLbls(focus: int=None):
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
     else:
         lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), comboBoxCur.getText().split(" ")[1])
-        lblBrutto.text = f'Your monthly brutto budget: {0:.2f}{1}'.format(calculateIncome(), comboBoxCur.getText().split(" ")[1])
+        lblBrutto.text = 'Your monthly brutto budget: {0:.2f}{1}'.format(calculateIncome(), comboBoxCur.getText().split(" ")[1])
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
 
 
@@ -1944,11 +1964,13 @@ if __name__ == '__main__':
     showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35, width=90)
     showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35, width=90)
 
-    if user.username == 'global':
-        editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
-    else:
+    if user.username not in groups:
         setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
-        
+    elif user.username != 'global':
+        pass
+    else:
+        editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
+    
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
 
     # start the app
