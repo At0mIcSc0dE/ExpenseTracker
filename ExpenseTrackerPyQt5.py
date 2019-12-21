@@ -159,6 +159,31 @@ class UserEditor(QtWidgets.QDialog):
         self.editWin.show()
 
 
+class UserInfo(QtWidgets.QDialog):
+    """Class to display user info"""
+
+    def __init__(self, title: str) -> None:
+        super().__init__()
+        self.infoWin = QtWidgets.QDialog()
+        self.infoWin.setWindowTitle(title)
+        self.infoWin.resize(700, 300)
+
+        self.OkBtnInfo = Button(self.infoWin, text='Ok', x=580, y=250, width=93, height=28, command=self.close)
+        self.lstbox = ListBox(self.infoWin, x=10, y=10, width=210, height=280, fontsize=13)
+        self.lblUsername = Label(self.infoWin, text='', x=230, y=100, width=230, height=30, fontsize=13)
+        self.lblInfo = Label(self.infoWin, text='', x=230, y=0, width=460, height=40, fontsize=13)
+
+    def close(self) -> None:
+        """Closes the editwindow"""
+
+        self.infoWin.destroy()
+
+    def show(self) -> None:
+        """Shows the editwin"""
+
+        self.infoWin.show()
+
+
 class User:
     """User class, You will be able to register with username and pw, data of user will be accesed by username str in database
     as a new column"""
@@ -1349,6 +1374,8 @@ def changeLanguageEnglish(win=None) -> None:
         lblTakings.text = 'One-Time Takings'
         lblMonthlyTakings.text = 'Monthly Income Sources'
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
+        moreInfoBtn.text = 'More Info'
+        userOriginBtn.text = 'See user'
         if user.username == 'global':
             editUserBtn.text = 'Edit Users'
         if win:
@@ -1374,6 +1401,7 @@ def changeLanguageGerman(win=None) -> None:
 
     addBtn.text = 'Hinzufügen'
     delBtn.text = 'Löschen'
+    moreInfoBtn.text = 'Mehr Infos'
     clearBtn.text = 'Alles löschen'
     dirBtn.text = 'Verzeich-\nnis än-\ndern'
     dupBtn.text = 'Duplizieren'
@@ -1393,6 +1421,7 @@ def changeLanguageGerman(win=None) -> None:
     lblTakings.text = 'Einnahmen'
     lblMonthlyTakings.text = 'Monatliche Einnahmen'
     lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
+    userOriginBtn.text = 'Benutzer anzeigen'
     if user.username == 'global':
         editUserBtn.text = 'Benutzer verwalten'
     if win:
@@ -1759,7 +1788,7 @@ def deleteUser():
             QtWidgets.QMessageBox.critical(None, 'Failed', "You can't remove users from global group!")
 
 
-def showUserInfo():
+def showUserInfo() -> None:
     """messagebox showing all her/his items(edited, added), name and balance, the same for group but not for useringroup"""
 
     global userWin, msgbox
@@ -1768,11 +1797,50 @@ def showUserInfo():
 
     msgbox = QtWidgets.QMessageBox()
     msgbox.setIcon = QtWidgets.QMessageBox.information
-    if userWin.chbAddUser.checkbox.isChecked():
-        pass
-    elif userWin.chbAddUserGroup.checkbox.isChecked():
-        pass
+    if userWin.chbAddUser.checkbox.isChecked() and curselectUser != -1:
+        global infoWin
+        username = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
+        if english:
+            infoWin = UserInfo(title=f'Information about user {username}')
+            infoWin.lblInfo.text = f'All expenses of the user {username}'
+            infoWin.lblUsername.text = f'Username: {username}'
+        elif german:
+            infoWin = UserInfo(title=f'Informationen über den Benutzer {username}')
+            infoWin.lblInfo.text = f'Alle Ausgaben des Benutzers {username}'
+            infoWin.lblUsername.text = f'Benutzername: {username}'
 
+        for data in belongsToUser(username, dtbOnce.readFromDtb()):
+            try:
+                infoWin.lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError:
+                pass
+        for data in belongsToUser(username, dtbMonth.readFromDtb()):
+            try:
+                infoWin.lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError:
+                pass
+        infoWin.show()
+
+    elif userWin.chbAddUserGroup.checkbox.isChecked() and curselectGroup != -1:
+        groupname = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
+        if english:
+            infoWin = UserInfo(title=f'Information about the group {groupname}')
+            infoWin.lblInfo.text = f'All users in group {groupname}'
+            infoWin.lblUsername.text = f'Groupname: {groupname}'
+        elif german:
+            infoWin = UserInfo(title=f'Informationen über die Gruppe {groupname}')
+            infoWin.lblInfo.text = f'Alle Benutzer in der Gruppe {groupname}'
+            infoWin.lblUsername.text = f'Gruppenname: {groupname}'
+        
+        group = Group(groupname)
+        for user in group.getUsersFromGroup():
+            try:
+                infoWin.lstbox.insertItems(0, user)
+            except IndexError:
+                pass
+        infoWin.show()
+    
+    
 def belongsToUser(username, dtbElements: list) -> list:
     """Returns all the elements that belong to the user"""
 
@@ -1783,6 +1851,10 @@ def belongsToUser(username, dtbElements: list) -> list:
     return results
 
 
+# !!MAIN FUNCTION
+# !!MAIN FUNCTION
+# !!MAIN FUNCTION
+# !!MAIN FUNCTION
 if __name__ == '__main__':
     # Initialize main app
     app = QtWidgets.QApplication(argv)
