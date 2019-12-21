@@ -1660,7 +1660,7 @@ def addUser():
             userWin.UsernameTxt.text = ''
             userWin.PasswordTxt.text = ''
     elif userWin.chbAddUserToGroup.checkbox.isChecked():
-        userWin.lstboxUsersInGroup.add('user to group', window=userWin):
+        userWin.lstboxUsersInGroup.add('user to group', window=userWin)
 
 
 def editUser():
