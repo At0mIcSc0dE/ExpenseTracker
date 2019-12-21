@@ -143,9 +143,9 @@ class UserEditor(QtWidgets.QDialog):
         self.BalanceTxt = TextBox(self.editWin, x=710, y=30, width=170, height=40, fontsize=16)
         self.lblinfoUsername = Label(self.editWin, text='Username', x=330, y=10, width=200, height=20, fontsize=13)
         self.lblinfoPassword = Label(self.editWin, text='Password', x=560, y=10, width=200, height=20, fontsize=13)
-        self.chbAddUser = CheckBox(self.editWin, text='Add User', x=330, y=80, width=240, height=20, command=chb5CommandHandler)
-        self.chbAddUserGroup = CheckBox(self.editWin, text='Add User Group', x=330, y=110, width=240, height=20, command=chb6CommandHandler)
-        self.chbAddUserToGroup = CheckBox(self.editWin, text='Add selected User to selected User Group', x=330, y=140, width=240, height=20, command=chb7CommandHandler)
+        self.chbAddUser = CheckBox(self.editWin, text='User', x=330, y=80, width=240, height=20, command=chb5CommandHandler)
+        self.chbAddUserGroup = CheckBox(self.editWin, text='User Group', x=330, y=110, width=240, height=20, command=chb6CommandHandler)
+        self.chbAddUserToGroup = CheckBox(self.editWin, text='User in User Group', x=330, y=140, width=240, height=20, command=chb7CommandHandler)
         self.lblinfoBalance = Label(self.editWin, text='Bank Balance', x=710, y=10, width=210, height=20, fontsize=13)
 
     def close(self) -> None:
@@ -1360,9 +1360,9 @@ def changeLanguageEnglish(win=None) -> None:
             win.deleteBtnEdit.text = 'Delete'
             win.lblinfoUsername.text = 'Username'
             win.lblinfoPassword.text = 'Password'
-            win.chbAddUser.text = 'Add User'
-            win.chbAddUserGroup.text = 'Add User Group'
-            win.chbAddUserToGroup.text = 'Add selected User to selected User Group'
+            win.chbAddUser.text = 'User'
+            win.chbAddUserGroup.text = 'User Group'
+            win.chbAddUserToGroup.text = 'User in User Group'
             win.lblinfoBalance.text = 'Bank Balance'
             win.lblUserGroup.text = 'Users in Group'
     except NameError:
@@ -1404,9 +1404,9 @@ def changeLanguageGerman(win=None) -> None:
         win.deleteBtnEdit.text = 'Löschen'
         win.lblinfoUsername.text = 'Benutzername'
         win.lblinfoPassword.text = 'Passwort'
-        win.chbAddUser.text = 'Benutzer hinzufügen'
-        win.chbAddUserGroup.text = 'Benutzergruppe hinzufügen'
-        win.chbAddUserToGroup.text = 'Benutzer zur Gruppe hizufügen'
+        win.chbAddUser.text = 'Benutzer'
+        win.chbAddUserGroup.text = 'Benutzergruppe'
+        win.chbAddUserToGroup.text = 'Benutzer in Gruppe'
         win.lblinfoBalance.text = 'Bankguthaben'
         win.lblUserGroup.text = 'Benutzer in Gruppe'
 
@@ -1449,7 +1449,7 @@ def monthEnd() -> bool:
             dtbTakings.clearDtb()
             lstboxTakings.listbox.clear()
             msgbox.information(msgbox, 'New Month',
-                            'A new month has begun, all One-Time-Expenses and Takings were deleted!')
+                               'A new month has begun, all One-Time-Expenses and Takings were deleted!')
         return True
     return False
 
@@ -1760,8 +1760,18 @@ def deleteUser():
 
 
 def showUserInfo():
-    """messagebox showing when it was added, name and balance"""
+    """messagebox showing all her/his items(edited, added), name and balance, the same for group but not for useringroup"""
 
+    global userWin, msgbox
+    curselectUser = userWin.lstboxUsers.curselection()
+    curselectGroup = userWin.lstboxUsers.curselection()
+
+    msgbox = QtWidgets.QMessageBox()
+    msgbox.setIcon = QtWidgets.QMessageBox.information
+    if userWin.chbAddUser.checkbox.isChecked():
+        pass
+    elif userWin.chbAddUserGroup.checkbox.isChecked():
+        pass
 
 def belongsToUser(username, dtbElements: list) -> list:
     """Returns all the elements that belong to the user"""
