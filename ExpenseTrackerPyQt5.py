@@ -266,13 +266,16 @@ class Group:
         with open(path) as file:
             data = json.load(file)
 
-            data['groups'][self.groupName] == data['groups'][self.groupName].insert(0, groupPW)
+            data['passwords'].update({self.groupName: groupPW})
+
+        with open(path, 'w') as file:
+            json.dump(data, file, indent=4)
 
 
 class DataBase:
     """Database class, no inheritance"""
 
-    def __init__(self, databasePath: str, table: str) -> None:
+    def __init__(self, databasePath: str, table: str, enc: str='expense') -> None:
         """Will create table if it does not exist.
         Args: your databasePath and the name of your table"""
 
@@ -280,16 +283,26 @@ class DataBase:
         self.conn = connect(databasePath)
         self.cursor = self.conn.cursor()
 
-        self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table + '''(
-                            ID INTEGER,
-                            Expense TEXT,
-                            Price INTEGER,
-                            MoreInfo TEXT,
-                            Day INTEGER,
-                            Month INTEGER,
-                            Year INTEGER,
-                            PRIMARY KEY(ID)
-                            )''')
+        if enc == 'expense':
+            self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table + '''(
+                                ID INTEGER,
+                                Expense TEXT,
+                                Price INTEGER,
+                                MoreInfo TEXT,
+                                Day INTEGER,
+                                Month INTEGER,
+                                Year INTEGER,
+                                Username TEXT,
+                                PRIMARY KEY(ID)
+                                )''')
+        elif enc == 'user':
+            self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table + '''(
+                                ID INTEGER,
+                                Username TEXT,
+                                Password TEXT,
+                                BankBalance INTEGER,
+                                PRIMARY KEY(ID)
+                                )''')
 
     def updateBalance(self, balance: (int, str), username: str) -> None:
         """Updates all balances and writes them to DTB:"""
@@ -388,21 +401,31 @@ class DataBase:
         self.cursor.execute('UPDATE ' + self.table + ' SET ID = ? WHERE ID = ?', (index[0], row[0]))
         self.conn.commit()
 
-    def cal(self, userName: str='') -> float:
+    def cal(self, userName: str='NONE') -> float:
         """Calculation of totalExpenses"""
 
-        if userName == '':
+        if userName == 'NONE':
             userName = user.username
 
-        if userName == globalUser:
-            self.cursor.execute('SELECT Price FROM ' + self.table)
-            expenses = self.cursor.fetchall()
-        else:
+        if userName not in groups: # ~ != global
+            
             self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (userName, ))
             expenses = self.cursor.fetchall()
-        totalExpense = 0
-        for expense in expenses:
-            totalExpense += float(expense[0])
+
+            totalExpense = 0
+            for expense in expenses:
+                totalExpense += float(expense[0])
+        else:
+            group = Group(userName)
+            for user in group.getUsersFromGroup():
+                # self.cursor.execute('SELECT Price FROM ' + self.table)
+                self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (user, ))
+                expenses = self.cursor.fetchall()
+
+                totalExpense = 0
+                for expense in expenses:
+                    totalExpense += float(expense[0])
+
         return totalExpense
 
     def readFromDtb(self) -> list:
@@ -904,11 +927,11 @@ def updateLbls(focus: int=None):
     """Updates lbls"""
 
     if focus == 1:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
+        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), comboBoxCur.getText().split(" ")[1])
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
     else:
-        lblNetto.text = f'Your remaining budget: {str(calculateResult())}{comboBoxCur.getText().split(" ")[1]}'
-        lblBrutto.text = f'Your monthly brutto budget: {str(calculateIncome())}{comboBoxCur.getText().split(" ")[1]}'
+        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), comboBoxCur.getText().split(" ")[1])
+        lblBrutto.text = f'Your monthly brutto budget: {0:.2f}{1}'.format(calculateIncome(), comboBoxCur.getText().split(" ")[1])
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
 
 
@@ -1123,14 +1146,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] != globalUser:
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] != globalUser:
+            if expenses[3] != 'global':
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -1161,41 +1184,70 @@ def writeToTxtFile(pa: str, text: str) -> None:
         f.write(str(text))
 
 
-def calculateResult(userName: str='') -> float:
+def calculateResult(userName: str='NONE') -> float:
     """Returns the end result of the expense calculation"""
 
-    if userName == '':
+    if userName == 'NONE':
         userName = user.username
 
-    return round(calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName)), 2)
+    result = 0
+    for usr in dtbUser.getUsers():
+        if usr[0] == userName:
+            if usr[0] in groups:
+
+                with open('C:/tmp/groups.json') as file:
+                    data = json.load(file)
+
+                for us in data['groups'][usr[0]]:
+                    if us not in groups:
+                        result += calculateIncome(us) - (dtbOnce.cal(us) + dtbMonth.cal(us))
+                break
+            result += calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName))
+            break
+    return round(result, 2)
 
 
-def calculateIncome(userName: str='') -> float:
+def calculateIncome(userName: str='NONE') -> float:
     """Returns the sum of all the monthly income sources"""
     
-    if userName == '':
+    if userName == 'NONE':
         userName = user.username
 
-    return round(dtbTakingsMonth.cal(userName) + dtbTakings.cal(userName), 2)
+    income = 0
+    for usr in dtbUser.getUsers():
+        if usr[0] == userName:
+            if usr[0] in groups:
+
+                with open('C:/tmp/groups.json') as file:
+                    data = json.load(file)
+
+                for us in data['groups'][usr[0]]:
+                    if us not in groups:
+                        income += dtbTakings.cal(us) + dtbTakingsMonth.cal(us)
+                break
+            income += dtbTakings.cal(userName) + dtbTakingsMonth.cal(userName)
+            break
+    return round(income, 2)
 
 
-def calculateBank(userName: str='') -> float:
+def calculateBank(userName: str='NONE') -> float:
     """Returns the money left from your bank ballance"""
 
     try:
-        if userName == '':
+        if userName == 'NONE':
             userName = user.username
 
         balance = 0
         for usr in dtbUser.getUsers():
-            if usr[0] == userName: #user.username
+            if usr[0] == userName:
                 if usr[0] in groups:
 
                     with open('C:/tmp/groups.json') as file:
                         data = json.load(file)
 
                     for us in data['groups'][usr[0]]:
-                        balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
+                        if us not in groups:
+                            balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
                     break
                 balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
                 break
@@ -1277,7 +1329,7 @@ def changeLanguageEnglish(win=None) -> None:
         lblTakings.text = 'One-Time Takings'
         lblMonthlyTakings.text = 'Monthly Income Sources'
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
-        if user.username == globalUser:
+        if user.username == 'global':
             editUserBtn.text = 'Edit Users'
         if win:
             win.addBtnEdit.text = 'Add'
@@ -1321,7 +1373,7 @@ def changeLanguageGerman(win=None) -> None:
     lblTakings.text = 'Einnahmen'
     lblMonthlyTakings.text = 'Monatliche Einnahmen'
     lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
-    if user.username == globalUser:
+    if user.username == 'global':
         editUserBtn.text = 'Benutzer verwalten'
     if win:
         win.addBtnEdit.text = 'Hinzufügen'
@@ -1453,12 +1505,13 @@ def createFiles() -> None:
         mkdir(path)
     except:
         pass
+    f = open('C:/tmp/groups.json', 'w')
+    data = {'groups': {'global': []}, 'passwords': {}}
+    json.dump(data, f, indent=4)
     open(dirfile, 'w+')
-    open(path + 'Bank.txt', 'w+')
     open(expenseDtbPath, 'w+')
     open(path + 'FirstTime.txt', 'w+')
     open(path + 'LastOpened.txt', 'w+')
-    f = open(path + 'OldExpenses.db', 'w+')
     f.close()
 
 
@@ -1602,14 +1655,12 @@ def addUser():
             userWin.UsernameTxt.text = ''
             userWin.PasswordTxt.text = ''
             userWin.BalanceTxt.text = ''
-            updateLbls()
     elif userWin.chbAddUserGroup.checkbox.isChecked():
         if userWin.lstboxUserGroup.add('user group'):
             userWin.UsernameTxt.text = ''
             userWin.PasswordTxt.text = ''
     elif userWin.chbAddUserToGroup.checkbox.isChecked():
-        if userWin.lstboxUsersInGroup.add('user to group', window=userWin):
-            updateLbls()
+        userWin.lstboxUsersInGroup.add('user to group', window=userWin):
 
 
 def editUser():
@@ -1631,7 +1682,7 @@ def deleteUser():
             data = json.load(file)
 
         text = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
-        if text != globalUser:
+        if text != 'global':
             for group in data['groups']:
                 try:
                     data['groups'][group].remove(text)
@@ -1648,7 +1699,6 @@ def deleteUser():
             dtbTakingsMonth.removeFromDtb(username=text)
         else:
             QtWidgets.QMessageBox.critical(None, 'Failed', "You can't delete the global user")
-        restart()
 
     elif userWin.chbAddUserGroup.checkbox.isChecked() and currselectGroup != -1:
         with open('C:/tmp/groups.json') as file:
@@ -1656,9 +1706,12 @@ def deleteUser():
 
         text = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
 
-        if text != globalUser:
+        if text != 'global':
             data['groups'].pop(text)
             data['passwords'].pop(text)
+            
+            for group in data['groups']:
+                data['groups'][group].remove(text)
 
             with open('C:/tmp/groups.json', 'w') as file:
                 json.dump(data, file, indent=4)
@@ -1670,14 +1723,13 @@ def deleteUser():
             dtbTakingsMonth.removeFromDtb(username=text)
         else:
             QtWidgets.QMessageBox.critical(None, 'Failed', "You can't delete the global group")
-        restart()
 
     elif userWin.chbAddUserToGroup.checkbox.isChecked()and currselectUserInGroup != -1:
         with open('C:/tmp/groups.json') as file:
             data = json.load(file)
 
         text = userWin.lstboxUsersInGroup.listbox.currentItem().text().split(',')[0].strip('"')
-        if userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') != globalUser:
+        if userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') != 'global':
             data['groups'][userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')].remove(text)
 
             with open('C:/tmp/groups.json', 'w') as file:
@@ -1685,7 +1737,6 @@ def deleteUser():
             userWin.lstboxUsersInGroup.delete(currselectUserInGroup)
         else:
             QtWidgets.QMessageBox.critical(None, 'Failed', "You can't remove users from global group!")
-        restart()
 
 
 def showUserInfo():
@@ -1715,10 +1766,6 @@ if __name__ == '__main__':
     dirfile = 'C:/tmp/dir.txt'
     german = False
     english = True
-    with open('C:/tmp/groups.json') as file:
-        jsonGroups = json.load(file)
-
-    groups = [key for key, _ in jsonGroups['groups'].items()]
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -1730,19 +1777,55 @@ if __name__ == '__main__':
     except:
         path = 'C:/tmp/ExpenseTracker/'
 
+    isFirstTime = isFirstTime()
+    # All the first Time things like creating files and entering config data
+    if isFirstTime:
+        createFiles()
+        today = datetime.today()
+        writeToTxtFile(path + 'LastOpened.txt', f'{str(today.month)};{str(today.year)}')
+        writeToTxtFile(path + 'FirstTime.txt', 'False')
+        writeToTxtFile(dirfile, path)
+
+        name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
+        pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
+
+        # get all group names
+        with open('C:/tmp/groups.json') as file:
+            jsonGroups = json.load(file)
+
+        groups = [key for key, _ in jsonGroups['groups'].items()]
+    else:
+        expenseDtbPath = path + 'Expenses.db'
+
     # Database
     dtbOnce = DataBase(expenseDtbPath, 'OneTimeExpenseTable')
     dtbMonth = DataBase(expenseDtbPath, 'MonthlyExpenseTable')
     dtbOldOnce = DataBase(path + 'OldExpenses.db', 'OneTimeExpenseTable')
     dtbTakings = DataBase(expenseDtbPath, 'OneTimeTakingsTable')
     dtbTakingsMonth = DataBase(expenseDtbPath, 'MonthlyTakingsTable')
-    dtbUser = DataBase('C:/tmp/ExpenseTracker/User.db', 'User')
+    dtbUser = DataBase('C:/tmp/ExpenseTracker/User.db', 'User', enc='user')
 
-    # creating user
-    name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
-    pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
-    user = User(name, pw)
-    globalUser = dtbUser.readUserDtb()[0][0]
+    if isFirstTime:
+        user = User(name, pw)
+        user.balance = setBankBalance()
+
+        dtbUser.cursor.execute('Update User SET BankBalance = ? WHERE Username = ?', (user.balance, user.username, ))
+        dtbUser.conn.commit()
+        user.balance = dtbUser.readUserDtb(user.username)[0][2]
+    else:
+        # get all group names
+        with open('C:/tmp/groups.json') as file:
+            jsonGroups = json.load(file)
+
+        groups = [key for key, _ in jsonGroups['groups'].items()]
+
+        # creating user
+        name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
+        pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
+        user = User(name, pw)
+
+    if user.username != 'global':
+        user.balance = dtbUser.readUserDtb(user.username)[0][2]
 
     # Drop down menu for currency
     comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
@@ -1754,6 +1837,7 @@ if __name__ == '__main__':
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
     
+    #listbox insertion
     dataOnce = []
     dataMonth = []
     dataTakings = []
@@ -1808,22 +1892,6 @@ if __name__ == '__main__':
             lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
         except IndexError:
             pass
-
-    # All the first Time things like creating files and entering config data
-    if isFirstTime():
-        createFiles()
-        today = datetime.today()
-        writeToTxtFile(path + 'LastOpened.txt', f'{str(today.month)};{str(today.year)}')
-        writeToTxtFile(path + 'FirstTime.txt', 'False')
-        writeToTxtFile(dirfile, path)
-        user.balance = setBankBalance()
-        dtbUser.cursor.execute('Update User SET BankBalance = ? WHERE Username = ?', (user.balance, user.username, ))
-        dtbUser.conn.commit()
-        user.balance = dtbUser.readUserDtb(user.username)[0][2]
-    else:
-        expenseDtbPath = path + 'Expenses.db'
-        if user.username != globalUser:
-            user.balance = dtbUser.readUserDtb(user.username)[0][2]
         
     # Textboxes
     expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16)
@@ -1876,7 +1944,7 @@ if __name__ == '__main__':
     showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35, width=90)
     showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35, width=90)
 
-    if user.username == globalUser:
+    if user.username == 'global':
         editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
     else:
         setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
