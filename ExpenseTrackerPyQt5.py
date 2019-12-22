@@ -4,7 +4,7 @@ You will be able to show a graph showing if your expenses increased or decreased
 The GUI will have a list of all of your expenses on the left, to which you can add using a text box right next to it.
 You will also be able to enter monthly expenses that are always the same so these will be automatically subtracted from
 your budget.
-All of this will be stored in a databasein the chosen directory, which you will be able to select
+All of this will be stored in a database in the chosen directory, which you will be able to select
 when you first open the program. I will also add a way to change the path and move all files from the previous one
 to the newer one.
 """
@@ -483,6 +483,7 @@ class DataBase:
     def cal(self, userName: str='NONE') -> float:
         """Calculation of totalExpenses"""
 
+        global user
         if userName == 'NONE':
             userName = user.username
 
@@ -1895,8 +1896,8 @@ def belongsToUser(username, dtbElements: list) -> list:
     return results
 
 
-#=========================================================================================================================================================
-#=========================================================================================================================================================
+#▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+#▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
     # Initialize main app
     app = QtWidgets.QApplication(argv)
