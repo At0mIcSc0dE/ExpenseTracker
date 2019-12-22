@@ -184,6 +184,31 @@ class UserInfo(QtWidgets.QDialog):
         self.infoWin.show()
 
 
+class UserInfoEditor:
+    """Class to display the three messageboxes(dialogs) for changing username, password, balance"""
+
+    def __init__(self, title: str) -> None:
+        super().__init__()
+        self.userEditWin = QtWidgets.QDialog()
+        self.userEditWin.setWindowTitle(title)
+        self.userEditWin.resize(500, 170)
+
+        self.nextBtn = Button(self.userEditWin, text='Next', x=390, y=130, command=self.next)
+        self.okBtn = Button(self.userEditWin, text='Ok', x=290, y=130, command=self.ok)
+        self.cancelBtn = Button(self.userEditWin, text='Cancel', x=190, y=130, command=self.cancel)
+        self.lblInfo = Label(self.userEditWin, text='Enter Username', x=20, y=10, width=450, height=30, fontsize=13)
+        self.userInfoTxt = TextBox(self.userEditWin, x=20, y=50, width=460, height=40, fontsize=13)
+
+    def next(self):
+        pass
+
+    def cancel(self):
+        self.userEditWin.close()
+
+    def ok(self):
+        pass
+
+
 class User:
     """User class, You will be able to register with username and pw, data of user will be accesed by username str in database
     as a new column"""
@@ -1714,7 +1739,7 @@ def addUser():
 
 def editUser():
     """In User lstbox focus: Messabebox: Username, Password, Balance with next, ok, cancel btns"""
-
+    userEditWin = UserInfoEditor()
 
 def deleteUser():
     """In user lstbox focus: removes User and all instances of him in groups
