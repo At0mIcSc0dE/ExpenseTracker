@@ -483,7 +483,6 @@ class DataBase:
     def cal(self, userName: str='NONE') -> float:
         """Calculation of totalExpenses"""
 
-        global user
         if userName == 'NONE':
             userName = user.username
 
