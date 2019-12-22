@@ -8,7 +8,7 @@
     "workbench.settings.openDefaultSettings": true,
     "workbench.settings.editor": "json",
     // "python.pythonPath": "D:\\Applications\\Anaconda3\\python.exe",
-    "python.pythonPath": "D:\\Applications\\Python37\\python.exe",
+    "python.pythonPath": "C:\\Users\\Simon Geier\\AppData\\Local\\Programs\\Python\\Python38-32\\python.exe",
     "editor.formatOnSave": true,
     "kite.showWelcomeNotificationOnStartup": false,
     "git.autofetch": true,
@@ -63,7 +63,21 @@
     "workbench.iconTheme": "material-icon-theme",
     "telemetry.enableTelemetry": false,
     "editor.suggest.snippetsPreventQuickSuggestions": false,
-    "editor.suggest.insertMode": "replace", // replaces the text to the right of the insertion
+    "editor.suggest.insertMode": "replace",
     "editor.tabCompletion": "on",
-    "editor.suggest.localityBonus": true
+    "editor.suggest.localityBonus": true,
+    "editor.autoIndent": "full", //play around with it this is the default
+    "editor.colorDecorators": true,
+    "editor.fastScrollSensitivity": 10,
+    "editor.minimap.scale": 2,
+    "editor.overviewRulerBorder": false,
+    "window.openFilesInNewWindow": "on",
+    "python.jediMemoryLimit": -1,
+    "explorer.incrementalNaming": "smart",
+    "search.useIgnoreFiles": false,
+    "update.mode": "start",
+    "update.showReleaseNotes": false,
+    "emmet.triggerExpansionOnTab": true,
+    "merge-conflict.autoNavigateNextConflict.enabled": true,
+    "python.autoComplete.addBrackets": true,
 }
