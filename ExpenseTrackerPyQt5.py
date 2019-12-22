@@ -25,7 +25,6 @@ import json
 
 global path, expenseDtbPath
 DEFAULTFONT = 'MS Shell Dlg 2'
-DEFAULTPLAINTEXT = 'Write more info about your expense here...'
 DELCMD = 'focus1'
 
 
@@ -70,9 +69,9 @@ class Editor(QtWidgets.QDialog):
         self.editWin.setWindowTitle('Editor')
 
         self.editWin.setObjectName("Editor")
-        self.expNameTxtEdit = TextBox(self.editWin, x=60, y=110, width=220, height=40, fontsize=16)
-        self.expPriceTxtEdit = TextBox(self.editWin, x=300, y=110, width=220, height=40, fontsize=16)
-        self.expInfoEdit = PlainText(self.editWin, x=60, y=160, width=460, height=180, fontsize=11)
+        self.expNameTxtEdit = TextBox(self.editWin, x=60, y=110, width=220, height=40, fontsize=16, placeHolder='Name')
+        self.expPriceTxtEdit = TextBox(self.editWin, x=300, y=110, width=220, height=40, fontsize=16, placeHolder='Price')
+        self.expInfoEdit = PlainText(self.editWin, x=60, y=160, width=460, height=180, fontsize=11, placeHolder='Write more info about your expense here...')
         self.lblDateEdit = Label(self.editWin, x=60, y=10, width=550, height=40, fontsize=18)
         self.btnOkEdit = Button(self.editWin, text='Ok', x=590, y=320, width=90, height=35, key='Return', command=self.apply)
         self.btnCancelEdit = Button(self.editWin, text='Cancel', x=700, y=320, width=90, height=35, command=self.close)
@@ -138,9 +137,9 @@ class UserEditor(QtWidgets.QDialog):
         self.userInfoBtnEdit = Button(self.editWin, text='Show User Info', x=220, y=110, width=90, height=35, command=showUserInfo)
         self.deleteBtnEdit = Button(self.editWin, text='Delete', x=220, y=150, width=90, height=35, command=deleteUser)
         self.lblUserGroup = Label(self.editWin, text='Users in Group', x=240, y=196, width=160, height=20, fontsize=13)
-        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=170, height=40, fontsize=16)
-        self.PasswordTxt = TextBox(self.editWin, x=520, y=30, width=170, height=40, fontsize=16)
-        self.BalanceTxt = TextBox(self.editWin, x=710, y=30, width=170, height=40, fontsize=16)
+        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=170, height=40, fontsize=16, placeHolder='Unsermane')
+        self.PasswordTxt = TextBox(self.editWin, x=520, y=30, width=170, height=40, fontsize=16, placeHolder='Password')
+        self.BalanceTxt = TextBox(self.editWin, x=710, y=30, width=170, height=40, fontsize=16, placeHolder='Balance')
         self.lblinfoUsername = Label(self.editWin, text='Username', x=330, y=10, width=200, height=20, fontsize=13)
         self.lblinfoPassword = Label(self.editWin, text='Password', x=560, y=10, width=200, height=20, fontsize=13)
         self.chbAddUser = CheckBox(self.editWin, text='User', x=330, y=80, width=240, height=20, command=chb5CommandHandler)
@@ -423,7 +422,7 @@ class DataBase:
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
         self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                            (exp, price, moreInfo.rstrip('\n').strip(DEFAULTPLAINTEXT), day, month, year, username))
+                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username))
         self.conn.commit()
 
     def dataEntryUser(self, username: str, password: str, balance: str) -> None:
@@ -576,17 +575,32 @@ class TextBox(QtWidgets.QLineEdit):
     """Simplified class of PyQt5.QtWidgets.QLineEdit TextBox"""
 
     def __init__(self, win: (QtWidgets.QMainWindow, QtWidgets.QDialog), text: str = '', x: int = 0, y: int = 0, width: int = 75,
-                 height: int = 23,
+                 height: int = 23, placeHolder: str='',
                  font: str = DEFAULTFONT, fontsize: int = 8) -> None:
         super().__init__()
         self._text = text
+        self._placeHolder = placeHolder
         self.textbox = QtWidgets.QLineEdit(win)
+        self.textbox.setPlaceholderText(placeHolder)
         self.textbox.setGeometry(QtCore.QRect(x, y, width, height))
         self.textbox.setText(self.text)
         self.font = QtGui.QFont()
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
         self.textbox.setFont(self.font)
+
+    @property
+    def placeHolder(self) -> str:
+        """@ property placeHolder"""
+
+        return self._placeHolder
+
+    @placeHolder.setter
+    def placeHolder(self, value: str) -> None:
+        """@placeHolder.setter for placeHolder"""
+
+        self._placeHolder = value
+        self.textbox.setPlaceholderText(value)
 
     @property
     def text(self) -> str:
@@ -886,18 +900,19 @@ class PlainText(QtWidgets.QPlainTextEdit):
     """Simplified class of PyQt5.QtWidgets.QPlainTextEdit PlainText"""
 
     def __init__(self, win: (QtWidgets.QMainWindow, QtWidgets.QDialog), text: str = '', x: int = 0, y: int = 0, width: int = 75,
-                 height: int = 23,
+                 height: int = 23, placeHolder: str='',
                  font: str = DEFAULTFONT, fontsize: int = 8) -> None:
         super().__init__()
         self._text = text
         self.plain = QtWidgets.QPlainTextEdit(win)
+        self.plain.setPlaceholderText(placeHolder)
         self.plain.setGeometry(QtCore.QRect(x, y, width, height))
         self.plain.insertPlainText(self.text)
         self.font = QtGui.QFont()
         self.font.setPointSize(fontsize)
         self.font.setFamily(font)
         self.plain.setFont(self.font)
-        self.plain.installEventFilter(self)
+        # self.plain.installEventFilter(self)
 
     @property
     def text(self) -> str:
@@ -911,15 +926,6 @@ class PlainText(QtWidgets.QPlainTextEdit):
 
         self._text = value
         self.plain.setPlainText(value)
-
-    def eventFilter(self, obj, event) -> bool:
-        """Event filter for plaintext, responsible for removing DEFAULTTEXT"""
-
-        if event.type() == QtCore.QEvent.FocusIn:
-            if self.text == DEFAULTPLAINTEXT:
-                self.text = ''
-                return True
-        return False
 
     def getText(self) -> str:
         """:returns the current text of the plain"""
@@ -1049,28 +1055,25 @@ def addItem() -> None:
         if lstbox.add('once'):
             expNameTxt.text = ''
             expPriceTxt.text = ''
-            if expInfo.getText() != DEFAULTPLAINTEXT:
-                expInfo.text = ''
-            else:
-                expInfo.text = DEFAULTPLAINTEXT
+            expInfo.text = ''
             updateLbls(1)
     elif chbMonthly.checkbox.isChecked():
         if lstboxMonth.add('month'):
             expNameTxt.text = ''
             expPriceTxt.text = ''
-            expInfo.text = '' if expInfo.text != DEFAULTPLAINTEXT else DEFAULTPLAINTEXT
+            expInfo.text = ''
             updateLbls(1)
     elif chbTakings.checkbox.isChecked():
         if lstboxTakings.add('taking'):
             expNameTxt.text = ''
             expPriceTxt.text = ''
-            expInfo.text = '' if expInfo.text != DEFAULTPLAINTEXT else DEFAULTPLAINTEXT
+            expInfo.text = ''
             updateLbls()
     elif chbTakingsMonth.checkbox.isChecked():
         if lstboxTakingsMonth.add('takingMonth'):
             expNameTxt.text = ''
             expPriceTxt.text = ''
-            expInfo.text = '' if expInfo.text != DEFAULTPLAINTEXT else DEFAULTPLAINTEXT
+            expInfo.text = ''
             updateLbls()
 
 
@@ -2021,15 +2024,15 @@ if __name__ == '__main__':
             pass
         
     # Textboxes
-    expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16)
-    expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16)
+    expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16, placeHolder='Name')
+    expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16, placeHolder='Price')
     mainWin.setTabOrder(expNameTxt, expPriceTxt) #! not working! "QWidget::setTabOrder: 'first' and 'second' must be in the same window"
 
     # SpinBox for Multiplier
     expMultiTxt = SpinBox(mainWin, text=1, x=350, y=190, width=70, height=30, mincount=1)
 
     # Extra Info Text
-    expInfo = PlainText(mainWin, text=DEFAULTPLAINTEXT, x=350, y=250, width=510, height=200, fontsize=11)
+    expInfo = PlainText(mainWin, text='', x=350, y=250, width=510, height=200, fontsize=11, placeHolder='Write more info about your expense here...')
 
     # Labels
     totalIncome = calculateIncome()
