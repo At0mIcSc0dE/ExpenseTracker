@@ -9,9 +9,9 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
-
+from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5 import QtCore, QtGui, QtWidgets
-from sys import exit, argv, executable
+import sys
 from os import execl, mkdir
 from os.path import exists
 from shutil import move
@@ -1185,7 +1185,7 @@ def isFirstTime() -> bool:
 def restart() -> None:
     """restarts application"""
 
-    execl(executable, executable, *argv)
+    execl(sys.executable, sys.executable, sys.argv)
 
 
 def showExpenseInfo() -> None:
@@ -1899,7 +1899,7 @@ def belongsToUser(username, dtbElements: list) -> list:
 #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
     # Initialize main app
-    app = QtWidgets.QApplication(argv)
+    app = ApplicationContext()
     mainWin = MainWindow(application=app, mainWindowTitle='ExpenseTracker', minsizeX=1200, minsizeY=600, maxsizeX=1200, maxsizeY=600)
     mainWin.resize(1200, 600)
     lstbox = ListBox(mainWin, x=20, y=50, width=180, height=300, fontsize=13)
@@ -2100,6 +2100,4 @@ if __name__ == '__main__':
 
     # start the app
     mainWin.show()
-    exit(app.exec_())
-
-
+    sys.exit(app.app.exec_())
