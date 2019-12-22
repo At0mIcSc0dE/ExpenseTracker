@@ -137,7 +137,7 @@ class UserEditor(QtWidgets.QDialog):
         self.userInfoBtnEdit = Button(self.editWin, text='Show User Info', x=220, y=110, width=90, height=35, command=showUserInfo)
         self.deleteBtnEdit = Button(self.editWin, text='Delete', x=220, y=150, width=90, height=35, command=deleteUser)
         self.lblUserGroup = Label(self.editWin, text='Users in Group', x=240, y=196, width=160, height=20, fontsize=13)
-        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=170, height=40, fontsize=16, placeHolder='Unsermane')
+        self.UsernameTxt = TextBox(self.editWin, x=330, y=30, width=170, height=40, fontsize=16, placeHolder='Username')
         self.PasswordTxt = TextBox(self.editWin, x=520, y=30, width=170, height=40, fontsize=16, placeHolder='Password')
         self.BalanceTxt = TextBox(self.editWin, x=710, y=30, width=170, height=40, fontsize=16, placeHolder='Balance')
         self.lblinfoUsername = Label(self.editWin, text='Username', x=330, y=10, width=200, height=20, fontsize=13)
@@ -186,6 +186,7 @@ class UserInfo(QtWidgets.QDialog):
 class UserInfoEditor:
     """Class to display the three messageboxes(dialogs) for changing username, password, balance"""
 
+    dic = {}
     def __init__(self, title: str) -> None:
         super().__init__()
         self.userEditWin = QtWidgets.QDialog()
@@ -193,19 +194,28 @@ class UserInfoEditor:
         self.userEditWin.resize(500, 170)
 
         self.nextBtn = Button(self.userEditWin, text='Next', x=390, y=130, command=self.next)
-        self.okBtn = Button(self.userEditWin, text='Ok', x=290, y=130, command=self.ok)
-        self.cancelBtn = Button(self.userEditWin, text='Cancel', x=190, y=130, command=self.cancel)
-        self.lblInfo = Label(self.userEditWin, text='Enter Username', x=20, y=10, width=450, height=30, fontsize=13)
-        self.userInfoTxt = TextBox(self.userEditWin, x=20, y=50, width=460, height=40, fontsize=13)
+        self.okBtn = Button(self.userEditWin, text='Ok', x=310, y=130, command=self.ok)
+        self.cancelBtn = Button(self.userEditWin, text='Cancel', x=230, y=130, command=self.cancel)
+        self.lblInfo = Label(self.userEditWin, text='Enter Username', x=20, y=10, width=450, height=30, fontsize=16)
+        self.userInfoTxt = TextBox(self.userEditWin, x=20, y=50, width=460, height=40, fontsize=16)
 
     def next(self):
-        pass
-
+        """Saves the current text in a dict {name: "name", pw: "pw", balance: "balance"} and if the last next btn was pressed
+           it will save all of the data in the corresponding database"""
+        
     def cancel(self):
+        """Closes the window without saving anything"""
+
         self.userEditWin.close()
 
     def ok(self):
-        pass
+        """acceses the dict of next() and saves the values before the ok btn was pressend, so if we already typed the username
+           and clicked next and now we typed the password and clicked ok, then it will only save the username and password."""
+
+    def show(self):
+        """shows the window"""
+
+        self.userEditWin.show()
 
 
 class User:
@@ -1742,7 +1752,9 @@ def addUser():
 
 def editUser():
     """In User lstbox focus: Messabebox: Username, Password, Balance with next, ok, cancel btns"""
-    userEditWin = UserInfoEditor()
+    
+    userEditWin = UserInfoEditor('Username')
+    userEditWin.show()
 
 def deleteUser():
     """In user lstbox focus: removes User and all instances of him in groups
@@ -1823,8 +1835,10 @@ def showUserInfo() -> None:
     curselectUser = userWin.lstboxUsers.curselection()
     curselectGroup = userWin.lstboxUsers.curselection()
 
+    # initialize the msgbox
     msgbox = QtWidgets.QMessageBox()
     msgbox.setIcon = QtWidgets.QMessageBox.information
+
     if userWin.chbAddUser.checkbox.isChecked() and curselectUser != -1:
         global infoWin
         username = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
@@ -1837,6 +1851,7 @@ def showUserInfo() -> None:
             infoWin.lblInfo.text = f'Alle Ausgaben des Benutzers {username}'
             infoWin.lblUsername.text = f'Benutzername: {username}'
 
+        # insert every item that belongs to the user into the listbox
         for data in belongsToUser(username, dtbOnce.readFromDtb()):
             try:
                 infoWin.lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
@@ -1860,6 +1875,7 @@ def showUserInfo() -> None:
             infoWin.lblInfo.text = f'Alle Benutzer in der Gruppe {groupname}'
             infoWin.lblUsername.text = f'Gruppenname: {groupname}'
         
+        # insert groupnames into the listbox
         group = Group(groupname)
         for user in group.getUsersFromGroup():
             try:
@@ -1879,10 +1895,8 @@ def belongsToUser(username, dtbElements: list) -> list:
     return results
 
 
-# !!MAIN FUNCTION
-# !!MAIN FUNCTION
-# !!MAIN FUNCTION
-# !!MAIN FUNCTION
+#=========================================================================================================================================================
+#=========================================================================================================================================================
 if __name__ == '__main__':
     # Initialize main app
     app = QtWidgets.QApplication(argv)
@@ -1954,6 +1968,7 @@ if __name__ == '__main__':
         pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
         user = User(name, pw)
 
+    # set user balance
     if user.username != 'global':
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
 
@@ -2053,7 +2068,6 @@ if __name__ == '__main__':
     lblNettoBank = Label(mainWin, x=400, y=530, height=50, width=500, fontsize=17,
                          text='Your remaining bank balance: {0:.2f}{1}'.format(totalBank, comboBoxCur.getText().split(' ')[1]))
 
-
     # Checkboxes
     chbOneTime = CheckBox(mainWin, text='One-Time-Expense', command=chb1CommandHandler, x=620, y=160, width=250,
                           height=20)
@@ -2074,6 +2088,7 @@ if __name__ == '__main__':
     showExpGraph_30 = Button(mainWin, text='30-Day-Graph', command=showMonthGraph, x=230, y=440, height=35, width=90)
     showExpGraph_365 = Button(mainWin, text='1-Year-Graph', command=showYearGraph, x=230, y=480, height=35, width=90)
 
+    # If the global User is called, then display editUserBtn
     if user.username not in groups:
         setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
     elif user.username != 'global':

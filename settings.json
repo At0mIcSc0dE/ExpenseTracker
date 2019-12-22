@@ -7,8 +7,8 @@
     "editor.fontFamily": "Consolas, 'Courier New', monospace",
     "workbench.settings.openDefaultSettings": true,
     "workbench.settings.editor": "json",
-    // "python.pythonPath": "D:\\Applications\\Anaconda3\\python.exe",
-    "python.pythonPath": "C:\\Users\\Simon Geier\\AppData\\Local\\Programs\\Python\\Python38-32\\python.exe",
+    "python.pythonPath": "D:\\Applications\\Python37\\python.exe",
+    // "python.pythonPath": "C:\\Users\\Simon Geier\\AppData\\Local\\Programs\\Python\\Python38-32\\python.exe",
     "editor.formatOnSave": true,
     "kite.showWelcomeNotificationOnStartup": false,
     "git.autofetch": true,
@@ -19,7 +19,6 @@
     "terminal.integrated.shell.windows": "C:\\WINDOWS\\System32\\cmd.exe",
     "python.dataScience.sendSelectionToInteractiveWindow": false,
     "editor.quickSuggestionsDelay": 10,
-    "code-runner.clearPreviousOutput": true,
     "editor.quickSuggestions": {
         "other": true,
         "comments": true,
@@ -57,7 +56,8 @@
         "--disable=too-many-return-statements",
         "--disable=too-many-nested-blocks",
         "--disable=missing-module-docstring",
-        "--disable=missing-final-newline"
+        "--disable=missing-final-newline",
+        "--disable=fixme"
     ],
     "workbench.colorTheme": "Material Theme Palenight High Contrast",
     "workbench.iconTheme": "material-icon-theme",
@@ -79,5 +79,5 @@
     "update.showReleaseNotes": false,
     "emmet.triggerExpansionOnTab": true,
     "merge-conflict.autoNavigateNextConflict.enabled": true,
-    "python.autoComplete.addBrackets": true,
+    "python.autoComplete.addBrackets": true
 }
