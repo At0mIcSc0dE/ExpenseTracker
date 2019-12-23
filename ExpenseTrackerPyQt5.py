@@ -1683,22 +1683,27 @@ def edit() -> None:
     editWin = Editor()
     currselectOnceEdit = lstbox.curselection()
     currselectMonthEdit = lstboxMonth.curselection()
+    currselectTakingsEdit = lstboxTakings.curselection()
+    currselectTakingsMonthEdit = lstboxTakingsMonth.curselection()
+    
 
     if currselectOnceEdit != -1 or currselectMonthEdit != -1:
 
         # insert all texts
         if DELCMD == 'focus1' and currselectOnceEdit != -1:
             values = dtbOnce.getRowValuesById(currselectOnceEdit, 1, 2, 3, 4, 5, 6)
-            editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
-            editWin.expNameTxtEdit.text = str(values[0])
-            editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
-            editWin.expInfoEdit.text = str(values[2])
         elif DELCMD == 'focus2' and currselectMonthEdit != -1:
             values = dtbMonth.getRowValuesById(currselectMonthEdit, 1, 2, 3, 4, 5, 6)
-            editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
-            editWin.expNameTxtEdit.text = str(values[0])
-            editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
-            editWin.expInfoEdit.text = str(values[2])
+        elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
+            values = dtbTakings.getRowValuesById(currselectTakingsEdit, 1, 2, 3, 4, 5, 6)
+        elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
+            values = dtbTakingsMonth.getRowValuesById(currselectTakingsMonthEdit, 1, 2, 3, 4, 5, 6)
+        
+        editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
+        editWin.expNameTxtEdit.text = str(values[0])
+        editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
+        editWin.expInfoEdit.text = str(values[2])
+
         editWin.show()
 
 
