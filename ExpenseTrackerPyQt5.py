@@ -9,7 +9,7 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
-from fbs_runtime.application_context.PyQt5 import ApplicationContext
+# from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from os import execl, mkdir
@@ -79,7 +79,7 @@ class Editor(QtWidgets.QDialog):
     def apply(self) -> None:
         """takes your selection, and the textbox elements!"""
 
-        global editWin, currselectOnceEdit, currselectMonthEdit
+        global editWin, currselectOnceEdit, currselectMonthEdit, currselectTakingsEdit, currselectTakingsMonthEdit
         name = editWin.expNameTxtEdit.getText()
         price = editWin.expPriceTxtEdit.getText()
         info = editWin.expInfoEdit.getText()
@@ -93,15 +93,19 @@ class Editor(QtWidgets.QDialog):
                 return
         except TypeError:
             pass
-
-        if DELCMD == 'focus1' and currselectOnceEdit != -1:
-            lstbox.update(currselectOnceEdit, name, price)
-            dtbOnce.update(currselectOnceEdit, name, price, info)
-            updateLbls(1)
-            self.editWin.destroy()
-        elif DELCMD == 'focus2' and currselectMonthEdit != -1:
-            lstboxMonth.update(currselectMonthEdit, name, price)
-            dtbMonth.update(currselectMonthEdit, name, price, info)
+        if currselectOnceEdit != -1 or currselectTakingsEdit != -1 or currselectMonthEdit != -1 or currselectTakingsMonthEdit != -1:
+            if DELCMD == 'focus1' and currselectOnceEdit != -1:
+                lstbox.update(currselectOnceEdit, name, price)
+                dtbOnce.update(currselectOnceEdit, name, price, info)
+            elif DELCMD == 'focus2' and currselectMonthEdit != -1:
+                lstboxMonth.update(currselectMonthEdit, name, price)
+                dtbMonth.update(currselectMonthEdit, name, price, info)
+            elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
+                lstboxTakings.update(currselectTakingsEdit, name, price)
+                dtbTakings.update(currselectTakingsEdit, name, price, info)
+            elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
+                lstboxTakingsMonth.update(currselectTakingsMonthEdit, name, price)
+                dtbTakingsMonth.update(currselectTakingsMonthEdit, name, price, info)
             updateLbls(1)
             self.editWin.destroy()
 
@@ -1679,32 +1683,33 @@ def chb7CommandHandler() -> None:
 def edit() -> None:
     """Function to handle the edit window"""
 
-    global editWin, currselectMonthEdit, currselectOnceEdit
+    global editWin, currselectMonthEdit, currselectOnceEdit, currselectTakingsEdit, currselectTakingsMonthEdit
     editWin = Editor()
     currselectOnceEdit = lstbox.curselection()
     currselectMonthEdit = lstboxMonth.curselection()
     currselectTakingsEdit = lstboxTakings.curselection()
     currselectTakingsMonthEdit = lstboxTakingsMonth.curselection()
-    
+    if user.username not in groups:
+        if currselectOnceEdit != -1 or currselectMonthEdit != -1 or currselectTakingsEdit != -1 or currselectTakingsMonthEdit != -1:
 
-    if currselectOnceEdit != -1 or currselectMonthEdit != -1:
+            # insert all texts
+            if DELCMD == 'focus1' and currselectOnceEdit != -1:
+                values = dtbOnce.getRowValuesById(currselectOnceEdit, 1, 2, 3, 4, 5, 6)
+            elif DELCMD == 'focus2' and currselectMonthEdit != -1:
+                values = dtbMonth.getRowValuesById(currselectMonthEdit, 1, 2, 3, 4, 5, 6)
+            elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
+                values = dtbTakings.getRowValuesById(currselectTakingsEdit, 1, 2, 3, 4, 5, 6)
+            elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
+                values = dtbTakingsMonth.getRowValuesById(currselectTakingsMonthEdit, 1, 2, 3, 4, 5, 6)
+            
+            editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
+            editWin.expNameTxtEdit.text = str(values[0])
+            editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
+            editWin.expInfoEdit.text = str(values[2])
 
-        # insert all texts
-        if DELCMD == 'focus1' and currselectOnceEdit != -1:
-            values = dtbOnce.getRowValuesById(currselectOnceEdit, 1, 2, 3, 4, 5, 6)
-        elif DELCMD == 'focus2' and currselectMonthEdit != -1:
-            values = dtbMonth.getRowValuesById(currselectMonthEdit, 1, 2, 3, 4, 5, 6)
-        elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
-            values = dtbTakings.getRowValuesById(currselectTakingsEdit, 1, 2, 3, 4, 5, 6)
-        elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
-            values = dtbTakingsMonth.getRowValuesById(currselectTakingsMonthEdit, 1, 2, 3, 4, 5, 6)
-        
-        editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
-        editWin.expNameTxtEdit.text = str(values[0])
-        editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
-        editWin.expInfoEdit.text = str(values[2])
-
-        editWin.show()
+            editWin.show()
+    else:
+        QtWidgets.QMessageBox.critical(None, 'Failed', "Can't edit when logged into a group")
 
 
 def readFromJson(pa: str='C:/tmp/groups.json'):
@@ -1904,7 +1909,8 @@ def belongsToUser(username, dtbElements: list) -> list:
 #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
     # Initialize main app
-    app = ApplicationContext()
+    # app = ApplicationContext()
+    app = QtWidgets.QApplication(sys.argv)
     mainWin = MainWindow(application=app, mainWindowTitle='ExpenseTracker', minsizeX=1200, minsizeY=600, maxsizeX=1200, maxsizeY=600)
     mainWin.resize(1200, 600)
     lstbox = ListBox(mainWin, x=20, y=50, width=180, height=300, fontsize=13)
@@ -2105,4 +2111,5 @@ if __name__ == '__main__':
 
     # start the app
     mainWin.show()
-    sys.exit(app.app.exec_())
+    # sys.exit(app.app.exec_())
+    sys.exit(app.exec_())
