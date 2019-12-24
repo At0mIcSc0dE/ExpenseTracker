@@ -190,36 +190,65 @@ class UserInfo(QtWidgets.QDialog):
 class UserInfoEditor:
     """Class to display the three messageboxes(dialogs) for changing username, password, balance"""
 
-    dic = {}
-    def __init__(self, title: str) -> None:
+    def __init__(self, usgr: str) -> None:
         super().__init__()
+        self.usage = usgr
         self.userEditWin = QtWidgets.QDialog()
-        self.userEditWin.setWindowTitle(title)
-        self.userEditWin.resize(500, 170)
+        self.userEditWin.resize(730, 140)
+        self.userEditWin.setMaximumSize(730, 140)
+        self.userEditWin.setMinimumSize(730, 140)
+        self.userEditWin.setWindowTitle('Edit User/Group')
+        self.lblPassword = Label(self.userEditWin, 'Password', 290, 20, 200, 20, fontsize=13)
 
-        self.nextBtn = Button(self.userEditWin, text='Next', x=390, y=130, command=self.next)
-        self.okBtn = Button(self.userEditWin, text='Ok', x=310, y=130, command=self.ok)
-        self.cancelBtn = Button(self.userEditWin, text='Cancel', x=230, y=130, command=self.cancel)
-        self.lblInfo = Label(self.userEditWin, text='Enter Username', x=20, y=10, width=450, height=30, fontsize=16)
-        self.userInfoTxt = TextBox(self.userEditWin, x=20, y=50, width=460, height=40, fontsize=16)
+        if usgr == 'user':
+            self.lblBalance = Label(self.userEditWin, 'Bank Balance', 540, 20, 200, 20, fontsize=13)
+            self.balanceTxt = TextBox(self.userEditWin, x=540, y=50, width=170, height=40, placeHolder='Balance', fontsize=16)
+            self.lblUsername = Label(self.userEditWin, text='Username', x=40, y=20, width=200, height=20, fontsize=13)
+            self.usernameTxt = TextBox(self.userEditWin, x=40, y=50, width=170, height=40, placeHolder='Username', fontsize=16)
+        elif usgr == 'group':
+            self.lblUsername = Label(self.userEditWin, text='Group name', x=40, y=20, width=200, height=20, fontsize=13)
+            self.usernameTxt = TextBox(self.userEditWin, x=40, y=50, width=170, height=40, placeHolder='Group name', fontsize=16)
 
-    def next(self):
-        """Saves the current text in a dict {name: "name", pw: "pw", balance: "balance"} and if the last next btn was pressed
-           it will save all of the data in the corresponding database"""
-        
-    def cancel(self):
-        """Closes the window without saving anything"""
-
-        self.userEditWin.close()
-
-    def ok(self):
-        """acceses the dict of next() and saves the values before the ok btn was pressend, so if we already typed the username
-           and clicked next and now we typed the password and clicked ok, then it will only save the username and password."""
+        self.pwTxt = TextBox(self.userEditWin, x=290, y=50, width=170, height=40, placeHolder='Password', fontsize=16)
+        self.updateBtn = Button(self.userEditWin, 'Update', 637, 110, command=self.update)
+        self.cancelBtn = Button(self.userEditWin, 'Cancel', 540, 110, command=self.cancel)
 
     def show(self):
         """shows the window"""
 
         self.userEditWin.show()
+
+    def cancel(self):
+        """closes the editor"""
+
+        self.userEditWin.close()
+
+    def update(self):
+        """Updaates the daatabase/json file, the labels"""
+
+        global userWin
+        if self.usage == 'user':
+            name = self.usernameTxt.getText()
+            pw = self.pwTxt.getText()
+            balance = self.balanceTxt.getText()
+            oldName = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
+
+            dtbUser.updateUser(name, pw, balance, oldName)
+
+            data = readFromJson()
+            for group in groups:
+                for user in data['groups'][group]:
+                    if user == oldName:
+                        data['groups'][group].append(name)
+                        data['groups'][group].remove(oldName)
+            with open('C:/tmp/groups.json', 'w') as file:
+                json.dump(data, file, indent=4)
+
+            userWin.lstboxUsers.update(userWin.lstboxUsers.curselection(), name, pw, balance, 'editUser')
+
+        elif self.usage == 'group':
+            pass
+        self.cancel()
 
 
 class User:
@@ -387,11 +416,18 @@ class DataBase:
                                 PRIMARY KEY(ID)
                                 )''')
 
-    def updateBalance(self, balance: (int, str), username: str) -> None:
+    def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None) -> None:
         """Updates all balances and writes them to DTB:"""
-        if username not in groups:
-            self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
+
+        if password and oldUsername is None:
+            if username not in groups:
+                self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
+                self.conn.commit()
+        elif username is not None and password is not None and balance is not None and oldUsername is not None:
+            self.cursor.execute('UPDATE ' + self.table + ' SET Username = ?, Password = ?, BankBalance = ? WHERE Username = ?', (username, password, balance, oldUsername))
             self.conn.commit()
+        else:
+            raise ValueError('Please input either only balance or all of the arguments')
 
     def getUsers(self):
         """returns list of all usernames"""
@@ -487,10 +523,7 @@ class DataBase:
     def cal(self, userName: str='NONE') -> float:
         """Calculation of totalExpenses"""
 
-        if userName == 'NONE':
-            userName = user.username
-
-        if userName not in groups: # ~ != global
+        if userName not in groups:
             
             self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (userName, ))
             expenses = self.cursor.fetchall()
@@ -501,7 +534,6 @@ class DataBase:
         else:
             group = Group(userName)
             for user in group.getUsersFromGroup():
-                # self.cursor.execute('SELECT Price FROM ' + self.table)
                 self.cursor.execute('SELECT Price FROM ' + self.table + ' WHERE Username = ?', (user, ))
                 expenses = self.cursor.fetchall()
 
@@ -605,7 +637,7 @@ class TextBox(QtWidgets.QLineEdit):
 
     @property
     def placeHolder(self) -> str:
-        """@ property placeHolder"""
+        """@property placeHolder"""
 
         return self._placeHolder
 
@@ -795,11 +827,15 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
 
         self.listbox.takeItem(rowID)
 
-    def update(self, selection: int, name: str, price: float) -> None:
-        """Updates listboxselection. Works by deleting the previos entry and replacing it with a new one"""
+    def update(self, selection: int, name: str, price: float, balance: (str, float)=0, usage: str='main') -> None:
+        """Updates listboxselection. Works by deleting the previos entry and replacing it with a new one,
+           :param usage = main or editUser"""
 
         self.delete(selection)
-        self.insertItems(selection, '{1}, {0:.2f}{2}'.format(float(price), name, comboBoxCur.getText().split(" ")[1]))
+        if usage == 'main':
+            self.insertItems(selection, '{1}, {0:.2f}{2}'.format(float(price), name, comboBoxCur.getText().split(" ")[1]))
+        elif usage == 'editUser':
+            self.insertItems(selection, f'"{name}", "{price}", "{balance}"')
         self.listbox.setCurrentRow(selection)
 
 
@@ -1189,7 +1225,7 @@ def isFirstTime() -> bool:
 def restart() -> None:
     """restarts application"""
 
-    execl(sys.executable, sys.executable, sys.argv)
+    execl(sys.executable, sys.executable, *sys.argv)
 
 
 def showExpenseInfo() -> None:
@@ -1233,14 +1269,14 @@ def showUserToExpense():
         elif curselectTakingsMonth != -1 and DELCMD == 'focus4':
             expenses = dtbTakingsMonth.readFromDtb()[::-1][curselectTakingsMonth]
         if english:
-            if expenses[3] != 'global':
+            if expenses[3] != globalUser:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The user "{expenses[3]}" added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
             else:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'The global user added expense/taking "{expenses[0]}" for {expenses[1]}{comboBoxCur.getText().split(" ")[1]}.')
         elif german:
-            if expenses[3] != 'global':
+            if expenses[3] != globalUser:
                 QtWidgets.QMessageBox.information(mainWin,
                                                   'User', f'Der Benutzer "{expenses[3]}" hat die Ausgabe/Einnahme "{expenses[0]}" für {expenses[1]}{comboBoxCur.getText().split(" ")[1]} hinzugefügt.')
             else:
@@ -1334,7 +1370,10 @@ def calculateBank(userName: str='NONE') -> float:
 
                     for us in data['groups'][usr[0]]:
                         if us not in groups:
-                            balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
+                            try:
+                                balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
+                            except IndexError:
+                                pass
                     break
                 balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
                 break
@@ -1418,7 +1457,7 @@ def changeLanguageEnglish(win=None) -> None:
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
         moreInfoBtn.text = 'More Info'
         userOriginBtn.text = 'See user'
-        if user.username == 'global':
+        if user.username == globalUser:
             editUserBtn.text = 'Edit Users'
         if win:
             win.addBtnEdit.text = 'Add'
@@ -1464,7 +1503,7 @@ def changeLanguageGerman(win=None) -> None:
     lblMonthlyTakings.text = 'Monatliche Einnahmen'
     lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
     userOriginBtn.text = 'Benutzer anzeigen'
-    if user.username == 'global':
+    if user.username == globalUser:
         editUserBtn.text = 'Benutzer verwalten'
     if win:
         win.addBtnEdit.text = 'Hinzufügen'
@@ -1511,7 +1550,7 @@ def monthEnd() -> bool:
         msgbox.setWindowTitle('New month!')
 
         for user in dtbUser.getUsers():
-            dtbUser.updateBalance(calculateBank(user[0]), user[0])
+            dtbUser.updateUser(balance=calculateBank(user[0]), username=user[0])
 
         for data in dtbOnce.getAllRecords():
             dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
@@ -1763,8 +1802,27 @@ def addUser():
 def editUser():
     """In User lstbox focus: Messabebox: Username, Password, Balance with next, ok, cancel btns"""
     
-    userEditWin = UserInfoEditor('Username')
-    userEditWin.show()
+    global userEditWin, userWin
+
+    curselectUser = userWin.lstboxUsers.curselection()
+    curselectGroup = userWin.lstboxUserGroup.curselection()
+
+    values = []
+    if curselectUser != -1 and userWin.chbAddUser.checkbox.isChecked():
+        userEditWin = UserInfoEditor('user')
+        values = dtbUser.getRowValuesById(curselectUser, 1, 2, 3)
+        userEditWin.usernameTxt.text = values[0]
+        userEditWin.pwTxt.text = values[1]
+        userEditWin.balanceTxt.text = str(values[2])
+        userEditWin.show()
+    elif curselectGroup != -1 and userWin.chbAddUserGroup.checkbox.isChecked():
+        userEditWin = UserInfoEditor('group')
+        text = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')
+        values.append(text[0].strip('"'))
+        values.append(text[1].strip('"').strip().strip('"'))
+        userEditWin.usernameTxt.text = values[0]
+        userEditWin.pwTxt.text = values[1]
+        userEditWin.show()
 
 def deleteUser():
     """In user lstbox focus: removes User and all instances of him in groups
@@ -1781,7 +1839,7 @@ def deleteUser():
             data = json.load(file)
 
         text = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
-        if text != 'global':
+        if text != globalUser:
             for group in data['groups']:
                 try:
                     data['groups'][group].remove(text)
@@ -1805,7 +1863,7 @@ def deleteUser():
 
         text = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
 
-        if text != 'global':
+        if text != globalUser:
             data['groups'].pop(text)
             data['passwords'].pop(text)
             
@@ -1828,7 +1886,7 @@ def deleteUser():
             data = json.load(file)
 
         text = userWin.lstboxUsersInGroup.listbox.currentItem().text().split(',')[0].strip('"')
-        if userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') != 'global':
+        if userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') != globalUser:
             data['groups'][userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')].remove(text)
 
             with open('C:/tmp/groups.json', 'w') as file:
@@ -1921,6 +1979,7 @@ if __name__ == '__main__':
     dirfile = 'C:/tmp/dir.txt'
     german = False
     english = True
+    globalUser = 'global'
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -1976,11 +2035,17 @@ if __name__ == '__main__':
 
         # creating user
         name, msgboxUSER = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Register or sign in if you already have an account.\nUsername: ')
-        pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
-        user = User(name, pw)
+        if msgboxUSER:
+            pw, msgboxPW = QtWidgets.QInputDialog.getText(mainWin, 'User', 'Password: ')
+        else:
+            exit()
+        if msgboxPW and msgboxUSER:
+            user = User(name, pw)
+        else:
+            exit()
 
     # set user balance
-    if user.username != 'global':
+    if user.username != globalUser:
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
 
     # Drop down menu for currency
@@ -2102,7 +2167,7 @@ if __name__ == '__main__':
     # If the global User is called, then display editUserBtn
     if user.username not in groups:
         setBankBtn = Button(mainWin, text='Set Balance', command=setBankBalanceBtn, x=230, y=540, height=35, width=90)
-    elif user.username != 'global':
+    elif user.username != globalUser:
         pass
     else:
         editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
