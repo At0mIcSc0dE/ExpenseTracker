@@ -6,7 +6,9 @@ You will also be able to enter monthly expenses that are always the same so thes
 your budget.
 All of this will be stored in a database in the chosen directory, which you will be able to select
 when you first open the program. I will also add a way to change the path and move all files from the previous one
-to the newer one.
+to the newer one. One-Time-Expenses categorize all expenses like (butter -> Food) (car repair -> Car), Add another TxtBox, 
+which you can type your Category in it, which will be added to another column in the database and will be able to be sorted 
+with a drop down menu in the lstbox
 """
 
 import json
@@ -232,7 +234,7 @@ class UserInfoEditor:
             balance = self.balanceTxt.getText()
             oldName = userWin.lstboxUsers.listbox.currentItem().text().split(',')[0].strip('"')
 
-            dtbUser.updateUser(name, pw, balance, oldName)
+            dtbUser.updateUser(name, pw, balance, oldName, typ='typ3')
 
             data = readFromJson()
             for group in groups:
@@ -244,7 +246,7 @@ class UserInfoEditor:
                 json.dump(data, file, indent=4)
 
             userWin.lstboxUsers.update(userWin.lstboxUsers.curselection(), name, pw, balance, 'editUser')
-
+            updateLbls()
         elif self.usage == 'group':
             name = self.usernameTxt.getText() # globall
             pw = self.pwTxt.getText()   # ""
@@ -432,17 +434,17 @@ class DataBase:
                                 PRIMARY KEY(ID)
                                 )''')
 
-    def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None) -> None:
+    def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None, typ: str='main') -> None:
         """Updates all balances and writes them to DTB:"""
 
-        if password and oldUsername is None:
+        if password and oldUsername is None and typ == 'main':
             if username not in groups:
                 self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
                 self.conn.commit()
-        elif password and oldUsername is not None:
+        elif password and oldUsername is not None and typ == 'typ2':
             self.cursor.execute('UPDATE ' + self.table + ' Set Username = ?, Password = ? WHERE Username = ?', (username, password, oldUsername))
             self.conn.commit()
-        elif username is not None and password is not None and balance is not None and oldUsername is not None:
+        elif username is not None and password is not None and balance is not None and oldUsername is not None and typ == 'typ3':
             self.cursor.execute('UPDATE ' + self.table + ' SET Username = ?, Password = ?, BankBalance = ? WHERE Username = ?', (username, password, balance, oldUsername))
             self.conn.commit()
         else:
