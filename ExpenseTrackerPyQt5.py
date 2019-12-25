@@ -9,19 +9,18 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one.
 """
 
-# from fbs_runtime.application_context.PyQt5 import ApplicationContext
-from PyQt5 import QtCore, QtGui, QtWidgets
+import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from os import execl, mkdir
 from os.path import exists
 from shutil import move
-from time import time
-from datetime import datetime
 from sqlite3 import connect
-from matplotlib.pyplot import plot, legend, title, xlabel, ylabel, show
-from concurrent.futures import ThreadPoolExecutor
-import json
-
+from time import time
+from matplotlib.pyplot import legend, plot, show, title, xlabel, ylabel
+# from fbs_runtime.application_context.PyQt5 import ApplicationContext
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 global path, expenseDtbPath
 DEFAULTFONT = 'MS Shell Dlg 2'
@@ -247,8 +246,25 @@ class UserInfoEditor:
             userWin.lstboxUsers.update(userWin.lstboxUsers.curselection(), name, pw, balance, 'editUser')
 
         elif self.usage == 'group':
-            pass
+            name = self.usernameTxt.getText() # globall
+            pw = self.pwTxt.getText()   # ""
+            oldName = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"') # global
+
+            data = readFromJson()
+            s = data['groups']
+            for group in data['groups']:
+                if oldName == group:
+                    data['groups'][name] = data['groups'][oldName]
+                    del data['groups'][oldName]
+                    data['passwords'][name] = pw
+                    del data['passwords'][oldName]
+                    break
+
+            with open('C:/tmp/groups.json', 'w') as file:
+                json.dump(data, file, indent=4)
+            dtbUser.updateUser(username=name, password=pw, oldUsername=oldName)
         self.cancel()
+        userWin.close()
 
 
 class User:
@@ -423,6 +439,9 @@ class DataBase:
             if username not in groups:
                 self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
                 self.conn.commit()
+        elif password and oldUsername is not None:
+            self.cursor.execute('UPDATE ' + self.table + ' Set Username = ?, Password = ? WHERE Username = ?', (username, password, oldUsername))
+            self.conn.commit()
         elif username is not None and password is not None and balance is not None and oldUsername is not None:
             self.cursor.execute('UPDATE ' + self.table + ' SET Username = ?, Password = ?, BankBalance = ? WHERE Username = ?', (username, password, balance, oldUsername))
             self.conn.commit()
@@ -829,13 +848,15 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
 
     def update(self, selection: int, name: str, price: float, balance: (str, float)=0, usage: str='main') -> None:
         """Updates listboxselection. Works by deleting the previos entry and replacing it with a new one,
-           :param usage = main or editUser"""
+           :param usage = main, editUser or editUserGroup"""
 
         self.delete(selection)
         if usage == 'main':
             self.insertItems(selection, '{1}, {0:.2f}{2}'.format(float(price), name, comboBoxCur.getText().split(" ")[1]))
         elif usage == 'editUser':
             self.insertItems(selection, f'"{name}", "{price}", "{balance}"')
+        elif usage == 'editUserGroup':
+            self.insertItems(selection, f'"{name}", "{price}"')
         self.listbox.setCurrentRow(selection)
 
 
