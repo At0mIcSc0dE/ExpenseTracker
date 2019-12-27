@@ -2252,13 +2252,22 @@ if __name__ == '__main__':
 
     # Category input Text
     catInptTxt = ComboBox(mainWin, x=450, y=190, width=129, height=30, fontsize=11, isEditable=True)
+
+    # Category comboboxes
+    comboBoxExpCat = ComboBox(mainWin, x=350, y=390, width=100, height=30, fontsize=11)
+    comboBoxTakCat = ComboBox(mainWin, x=760, y=390, width=100, height=30, fontsize=11)
     for catg in expCategories:
         catInptTxt.addItems(catg)
+        comboBoxExpCat.addItems(catg)
+    for catg in takCategories:
+        comboBoxTakCat.addItems(catg)
 
     # Labels
     totalIncome = calculateIncome()
     totalexp = calculateResult()
     totalBank = calculateBank()
+    lblInfoCatExp = Label(mainWin, x=350, y=360, width=300, height=20, fontsize=11, text='Change Expense Category')
+    lblInfoCatTak = Label(mainWin, x=700, y=360, width=300, height=20, fontsize=11, text='Change Taking Category')
     lblInfoCatInpt = Label(mainWin, x=450, y=170, width=200, fontsize=13, height=20, text='Enter Category')
     lblBrutto = Label(mainWin, x=400, y=10, height=50, width=500, fontsize=17,
                       text='Your monthly brutto budget: {0:.2f}{1}'.format(totalIncome, comboBoxCur.getText().split(" ")[1]))
