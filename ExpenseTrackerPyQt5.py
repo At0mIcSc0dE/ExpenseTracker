@@ -8,7 +8,7 @@ All of this will be stored in a database in the chosen directory, which you will
 when you first open the program. I will also add a way to change the path and move all files from the previous one
 to the newer one. One-Time-Expenses categorize all expenses like (butter -> Food) (car repair -> Car), Add another TxtBox, 
 which you can type your Category in it, which will be added to another column in the database and will be able to be sorted 
-with a drop down menu in the lstbox
+with a drop down menu in the lstbox. I will also add a way to view old expenses and change the date at which they were added.
 """
 
 import json
@@ -244,6 +244,15 @@ class UserInfoEditor:
                         data['groups'][group].remove(oldName)
             with open('C:/tmp/groups.json', 'w') as file:
                 json.dump(data, file, indent=4)
+
+            dtbOnce.cursor.execute('UPDATE OneTimeExpenseTable SET Username = ? WHERE Username = ?', (name, oldName))
+            dtbMonthrsor.execute('UPDATE MonthlyExpenseTable SET Username = ? WHERE Username = ?', (name, oldName))
+            dtbTakings.cursor.execute('UPDATE OneTimeTakingsTable SET Username = ? WHERE Username = ?', (name, oldName))
+            dtbTakingsMonth.cursor.execute('UPDATE MonthlyTakingsTable SET Username = ? WHERE Username = ?', (name, oldName))
+            dtbOnce.conn.commit()
+            dtbMOnth.conn.commit()
+            dtbTakings.conn.commit()
+            dtbTakingsMonth.conn.commit()
 
             userWin.lstboxUsers.update(userWin.lstboxUsers.curselection(), name, pw, balance, 'editUser')
             updateLbls()
