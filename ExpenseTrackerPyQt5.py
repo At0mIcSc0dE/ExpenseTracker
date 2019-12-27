@@ -411,6 +411,36 @@ class Group:
             json.dump(data, file, indent=4)
 
 
+class Category:
+    """Categorizes Expenses. All expenses will automatically be added to the category "all"."""
+
+    def __init__(self, name: str, exp: bool=True):
+        self._name = name
+        self.exp = exp
+        if self.name not in expCategories and exp:
+            self.addCategroy()
+        elif self.name not in takCategories and not exp:
+            self.addCategroy()
+        else:
+            print('Exists')
+
+    def addCategroy(self):
+        if self.exp:
+            dtbExpCategory.dataEntryCategory(self.name)
+            expCategories.append(self.name)
+        else:
+            dtbTakCategory.dataEntryCategory(self.name)
+            takCategories.append(self.name)
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+
 class DataBase:
     """Database class, no inheritance"""
 
@@ -432,6 +462,7 @@ class DataBase:
                                 Month INTEGER,
                                 Year INTEGER,
                                 Username TEXT,
+                                Category TEXT,
                                 PRIMARY KEY(ID)
                                 )''')
         elif enc == 'user':
@@ -442,6 +473,18 @@ class DataBase:
                                 BankBalance INTEGER,
                                 PRIMARY KEY(ID)
                                 )''')
+        elif enc == 'category':
+            self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table + '''(
+                                 ID INTEGER,
+                                 Name TEXT,
+                                 PRIMARY KEY(ID)
+                                 )''')
+
+    def dataEntryCategory(self, name: str) -> None:
+        """Enters the category with the name into the dtb"""
+
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Name) VALUES(?)', (name, ))
+        self.conn.commit()
 
     def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None, typ: str='main') -> None:
         """Updates all balances and writes them to DTB:"""
@@ -465,11 +508,23 @@ class DataBase:
         self.cursor.execute('SELECT Username FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def getUserBalance(self, username: str):
+    def getUserBalance(self, username: str) -> list:
         """returns the balance of the user"""
 
         self.cursor.execute('SELECT BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
         return self.cursor.fetchall()
+
+    def readFromCategoryDtb(self, name: str=None) -> list:
+        """returns a list of all the names of all categories"""
+
+        if name:
+            self.cursor.execute('SELECT Name FROM ' + self.table + ' WHERE Name = ?', (name, ))
+        else:
+            self.cursor.execute('SELECT Name FROM ' + self.table)
+        retval = []
+        for element in self.cursor.fetchall():
+            retval.append(element[0])
+        return retval
 
     def getRowValuesById(self, rowid: int, *elemIndex: int):
         """Enter the ID by which the record is stored and the function will return you a list if you want multiple elements
@@ -497,12 +552,12 @@ class DataBase:
         self.cursor.execute('SELECT * FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None):
+    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None, category: str='All'):
         """Enters data into a database"""
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
-        self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username))
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username, Category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username, category))
         self.conn.commit()
 
     def dataEntryUser(self, username: str, password: str, balance: str) -> None:
@@ -664,7 +719,7 @@ class TextBox(QtWidgets.QLineEdit):
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
         self.textbox.setFont(self.font)
-
+    
     @property
     def placeHolder(self) -> str:
         """@property placeHolder"""
@@ -944,10 +999,11 @@ class ComboBox(QtWidgets.QComboBox):
     """Simplified class of PyQt5.QtWidgets.QComboBox ComboBox"""
 
     def __init__(self, win: (QtWidgets.QMainWindow, QtWidgets.QDialog), x: int = 0, y: int = 0, width: int = 75, height: int = 23,
-                 font: str = DEFAULTFONT, fontsize: int = 8) -> None:
+                 font: str = DEFAULTFONT, fontsize: int = 8, isEditable: bool=False) -> None:
         super().__init__()
         self.combobox = QtWidgets.QComboBox(win)
         self.combobox.setGeometry(QtCore.QRect(x, y, width, height))
+        self.combobox.setEditable(isEditable)
         self.font = QtGui.QFont()
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
@@ -976,6 +1032,11 @@ class ComboBox(QtWidgets.QComboBox):
             changeLanguageGerman(german)
             german = True
             english = False
+
+    def clear(self):
+        """Clears text and items in self"""
+
+        self.combobox.clear()
 
 
 class PlainText(QtWidgets.QPlainTextEdit):
@@ -1676,27 +1737,50 @@ def createFiles() -> None:
     open(path + 'LastOpened.txt', 'w+')
     f.close()
 
-
 def chb1CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
-
+    
+    global categoryType
+    if categoryType != 'Expense':
+        catInptTxt.clear()
+        for catg in expCategories:
+            catInptTxt.addItems(catg)
+            categoryType = 'Expense'
     chbOneTime.unckeckAny(False, chbMonthly, chbTakings, chbTakingsMonth)
 
 
 def chb2CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
 
+    global categoryType
+    if categoryType != 'Expense':
+        catInptTxt.clear()
+        for catg in expCategories:
+            catInptTxt.addItems(catg)
+            categoryType = 'Expense'
     chbMonthly.unckeckAny(False, chbOneTime, chbTakings, chbTakingsMonth)
 
 
 def chb3CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
 
+    global categoryType
+    if categoryType != 'Taking':
+        catInptTxt.clear()
+        for catg in takCategories:
+            catInptTxt.addItems(catg)
+            categoryType = 'Taking'
     chbTakings.unckeckAny(False, chbMonthly, chbOneTime, chbTakingsMonth)
 
 def chb4CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
 
+    global categoryType
+    if categoryType != 'Taking':
+        catInptTxt.clear()
+        for catg in takCategories:
+            catInptTxt.addItems(catg)
+            categoryType = 'Taking'
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
 def chb5CommandHandler() -> None:
@@ -1998,6 +2082,7 @@ def belongsToUser(username, dtbElements: list) -> list:
 #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
+    global categoryType
     # Initialize main app
     # app = ApplicationContext()
     app = QtWidgets.QApplication(sys.argv)
@@ -2012,6 +2097,7 @@ if __name__ == '__main__':
     german = False
     english = True
     globalUser = 'global'
+    categoryType = 'Expense'
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -2049,7 +2135,14 @@ if __name__ == '__main__':
     dtbOldOnce = DataBase(path + 'OldExpenses.db', 'OneTimeExpenseTable')
     dtbTakings = DataBase(expenseDtbPath, 'OneTimeTakingsTable')
     dtbTakingsMonth = DataBase(expenseDtbPath, 'MonthlyTakingsTable')
-    dtbUser = DataBase('C:/tmp/ExpenseTracker/User.db', 'User', enc='user')
+    dtbUser = DataBase(path + 'User.db', 'User', enc='user')
+    dtbExpCategory = DataBase(path + 'Category.db', 'ExpenseCategory', enc='category')
+    dtbTakCategory = DataBase(path + 'Category.db', 'TakingsCategory', enc='category')
+
+    expCategories = dtbExpCategory.readFromCategoryDtb()
+    takCategories = dtbTakCategory.readFromCategoryDtb()
+    expCat = Category('All')
+    takCat = Category('All', exp=False)
 
     if isFirstTime:
         user = User(name, pw)
@@ -2155,12 +2248,18 @@ if __name__ == '__main__':
     expMultiTxt = SpinBox(mainWin, text=1, x=350, y=190, width=70, height=30, mincount=1)
 
     # Extra Info Text
-    expInfo = PlainText(mainWin, text='', x=350, y=250, width=510, height=200, fontsize=11, placeHolder='Write more info about your expense here...')
+    expInfo = PlainText(mainWin, text='', x=350, y=250, width=510, height=100, fontsize=11, placeHolder='Write more info about your expense here...')
+
+    # Category input Text
+    catInptTxt = ComboBox(mainWin, x=450, y=190, width=129, height=30, fontsize=11, isEditable=True)
+    for catg in expCategories:
+        catInptTxt.addItems(catg)
 
     # Labels
     totalIncome = calculateIncome()
     totalexp = calculateResult()
     totalBank = calculateBank()
+    lblInfoCatInpt = Label(mainWin, x=450, y=170, width=200, fontsize=13, height=20, text='Enter Category')
     lblBrutto = Label(mainWin, x=400, y=10, height=50, width=500, fontsize=17,
                       text='Your monthly brutto budget: {0:.2f}{1}'.format(totalIncome, comboBoxCur.getText().split(" ")[1]))
     lblNetto = Label(mainWin, y=480, height=50, width=500, fontsize=17,
