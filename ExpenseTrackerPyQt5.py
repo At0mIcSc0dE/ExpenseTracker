@@ -417,20 +417,42 @@ class Category:
     def __init__(self, name: str, exp: bool=True):
         self._name = name
         self.exp = exp
-        if self.name not in expCategories and exp:
-            self.addCategroy()
-        elif self.name not in takCategories and not exp:
-            self.addCategroy()
+        if user.username in groups:
+            for usr in Group(user.username).getUsersFromGroup():
+                if (self.name, usr) not in expCategories and exp:
+                    self.addCategroy(usr)
+                elif (self.name, usr) not in takCategories and not exp:
+                    self.addCategroy(usr)
         else:
-            print('Exists')
+            if (self.name, user.username) not in expCategories and exp:
+                self.addCategroy()
+            elif (self.name, user.username) not in takCategories and not exp:
+                self.addCategroy()
 
-    def addCategroy(self):
+    def addCategroy(self, usr: str=None):
         if self.exp:
-            dtbExpCategory.dataEntryCategory(self.name)
-            expCategories.append(self.name)
+            if user.username in groups:
+                group = Group(user.username)
+                dtbExpCategory.dataEntryCategory(self.name, [usr])
+            else:
+                dtbExpCategory.dataEntryCategory(self.name, [user.username])
+            expCategories.append((self.name, user.username))
+            try:
+                catInptTxt.addItems(self.name)
+                comboBoxExpCat.addItems(self.name)
+            except NameError:
+                pass
         else:
-            dtbTakCategory.dataEntryCategory(self.name)
+            if user.username in groups:
+                group = Group(user.username)
+                dtbTakCategory.dataEntryCategory(self.name, [usr])
+            else:
+                dtbTakCategory.dataEntryCategory(self.name, [user.username])
             takCategories.append(self.name)
+            try:
+                comboBoxTakCat.addItems(self.name)
+            except NameError:
+                pass
 
     @property
     def name(self):
@@ -477,14 +499,26 @@ class DataBase:
             self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table + '''(
                                  ID INTEGER,
                                  Name TEXT,
+                                 Username TEXT,
                                  PRIMARY KEY(ID)
                                  )''')
 
-    def dataEntryCategory(self, name: str) -> None:
+    def getRowsByCategory(self, catName: str, usernames: list=[]) -> list:
+        """returns a list of all the rows with the catName as Category"""
+
+        if user.username not in usernames : usernames.append(user.username)
+        retval = []
+        for usr in usernames:
+            self.cursor.execute('SELECT Expense, Price, MoreInfo, Username, Category FROM ' + self.table + ' WHERE Category = ? and Username = ?', (catName, usr))
+            retval.append(self.cursor.fetchall())
+        return retval
+
+    def dataEntryCategory(self, name: str, usernames: list) -> None:
         """Enters the category with the name into the dtb"""
 
-        self.cursor.execute('INSERT INTO ' + self.table + ' (Name) VALUES(?)', (name, ))
-        self.conn.commit()
+        for user in usernames:
+            self.cursor.execute('INSERT INTO ' + self.table + ' (Name, Username) VALUES(?, ?)', (name, user))
+            self.conn.commit()
 
     def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None, typ: str='main') -> None:
         """Updates all balances and writes them to DTB:"""
@@ -514,17 +548,25 @@ class DataBase:
         self.cursor.execute('SELECT BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
         return self.cursor.fetchall()
 
-    def readFromCategoryDtb(self, name: str=None) -> list:
+    def readFromCategoryDtb(self, name: str=None, enc: str='noUser') -> list:
         """returns a list of all the names of all categories"""
 
-        if name:
-            self.cursor.execute('SELECT Name FROM ' + self.table + ' WHERE Name = ?', (name, ))
-        else:
-            self.cursor.execute('SELECT Name FROM ' + self.table)
         retval = []
-        for element in self.cursor.fetchall():
-            retval.append(element[0])
-        return retval
+        if enc == 'noUser':
+            if name:
+                self.cursor.execute('SELECT Name FROM ' + self.table + ' WHERE Name = ?', (name, ))
+            else:
+                self.cursor.execute('SELECT Name FROM ' + self.table)
+            for element in self.cursor.fetchall():
+                retval.append(element[0])
+            return retval
+        elif enc == 'user':
+            if name:
+                self.cursor.execute('SELECT Name, Username FROM ' + self.table + ' WHERE Name = ?', (name, ))
+            else:
+                self.cursor.execute('SELECT Name, Username FROM ' + self.table)
+            return self.cursor.fetchall()
+        
 
     def getRowValuesById(self, rowid: int, *elemIndex: int):
         """Enter the ID by which the record is stored and the function will return you a list if you want multiple elements
@@ -552,12 +594,15 @@ class DataBase:
         self.cursor.execute('SELECT * FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None, category: str='All'):
+    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None, catName: Category = None):
         """Enters data into a database"""
+
+        if not catName:
+            catName = Category('All')
 
         day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
         self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username, Category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username, category))
+                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username, catName.name))
         self.conn.commit()
 
     def dataEntryUser(self, username: str, password: str, balance: str) -> None:
@@ -831,11 +876,20 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             price = txt.split(' ')[1].split(currency)[0]
             expTime = expenseTime[1]
             moreInfo = ''
+            category = None
             if expenseTime == ('dup', 'once'):
                 moreInfo = dtbOnce.getRowValuesById(currselect[0], 3)
+                category = (dtbOnce.getRowValuesById(currselect[0], 8))
             elif expenseTime == ('dup', 'month'):
                 moreInfo = dtbMonth.getRowValuesById(currselect[0], 3)
-            addListToDtb(float(price), name, expTime, moreInfo)
+                category = (dtbMonth.getRowValuesById(currselect[0], 8))
+            elif expenseTime == ('dup', 'taking'):
+                moreInfo = dtbTakings.getRowValuesById(currselect[0], 3)
+                category = (dtbTakings.setRowValuesById(currselect[0], 8))
+            elif expenseTime == ('dup', 'takingMonth'):
+                moreInfo = dtbTakingsMonth.getRowValuesById(currselect[0], 3)
+                category = (dtbTakingsMonth.getRowValuesById(currselect[0], 8))
+            addListToDtb(float(price), name, expTime, moreInfo, category)
             return True
         if expenseTime in ('user', 'user group'):
             name = userWin.UsernameTxt.getText()
@@ -848,6 +902,10 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             expmoreInfo = expInfo.getText()
             expcurrency = comboBoxCur.getText().split(' ')[1]
             expmultiplier = expMultiTxt.getText()
+            if chbOneTime.checkbox.isChecked() or chbMonthly.checkbox.isChecked():
+                category = Category(catInptTxt.getText() if catInptTxt.getText() != '' else 'All')
+            else:
+                category = Category(catInptTxt.getText() if catInptTxt.getText() != '' else 'All', exp=False)
 
         # Check if valid price and multiplier input
         msgbox = QtWidgets.QMessageBox(mainWin)
@@ -890,7 +948,7 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         elif expname and expprice != '':
             for _ in range(multiplier):
                 self.insertItems(0, '{1}, {0:.2f}{2}'.format(expprice, expname, expcurrency))
-                addListToDtb(expprice, expname, expenseTime, expmoreInfo)
+                addListToDtb(expprice, expname, expenseTime, expmoreInfo, category)
                 expMultiTxt.text = 1
             return True
         msgbox.information(msgbox, 'Invalid Input', 'Invalid Input, try again!')
@@ -1020,18 +1078,95 @@ class ComboBox(QtWidgets.QComboBox):
 
         return self.combobox.currentText()
 
-    def currentTextChanged(self, p_str: str) -> None:
+    def currentTextChanged(self, newText: str) -> None:
         """Change event for different selection in combobox"""
-
-        global german, english
-        if p_str == 'English':
-            changeLanguageEnglish(english)
-            german = False
-            english = True
-        elif p_str == 'Deutsch':
-            changeLanguageGerman(german)
-            german = True
-            english = False
+        try:
+            if self == comboBoxCur:
+                global german, english
+                if newText == 'English':
+                    changeLanguageEnglish(english)
+                    german = False
+                    english = True
+                elif newText == 'Deutsch':
+                    changeLanguageGerman(german)
+                    german = True
+                    english = False
+            elif self == comboBoxExpCat:
+                if newText != 'All':
+                    if user.username not in groups:
+                        valuesOnce = dtbOnce.getRowsByCategory(newText)
+                        valuesMonth = dtbMonth.getRowsByCategory(newText)
+                    else:
+                        group = Group(user.username)
+                        valuesOnce = dtbOnce.getRowsByCategory(newText, group.getUsersFromGroup())
+                        valuesMonth = dtbMonth.getRowsByCategory(newText, group.getUsersFromGroup())
+                    lstbox.listbox.clear()
+                    lstboxMonth.listbox.clear()
+                    for element in valuesOnce:
+                        if len(element) > 1:
+                            for elem in element:
+                                try:
+                                    lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], comboBoxCur.getText().split(" ")[1]))
+                                except IndexError:
+                                    pass
+                        else:
+                            try:
+                                lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(element[0][1], element[0][0], comboBoxCur.getText().split(" ")[1]))
+                            except IndexError:
+                                pass
+                    for element in valuesMonth:
+                        if len(element) > 1:
+                            for elem in element:
+                                try:
+                                    lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], comboBoxCur.getText().split(" ")[1]))
+                                except IndexError:
+                                    pass
+                        else:
+                            try:
+                                lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(element[0][1], element[0][0], comboBoxCur.getText().split(" ")[1]))
+                            except IndexError:
+                                pass
+                else:
+                    insertIntoListBoxes(exp='exp')
+            elif self == comboBoxTakCat:
+                if newText != 'All':
+                    if user.username not in groups:
+                        valuesOnce = dtbTakings.getRowsByCategory(newText)
+                        valuesMonth = dtbTakingsMonth.getRowsByCategory(newText)
+                    else:
+                        group = Group(user.username)
+                        valuesOnce = dtbTakings.getRowsByCategory(newText, group.getUsersFromGroup())
+                        valuesMonth = dtbTakingsMonth.getRowsByCategory(newText, group.getUsersFromGroup())
+                    lstboxTakings.listbox.clear()
+                    lstboxTakingsMonth.listbox.clear()
+                    for element in valuesOnce:
+                        if len(element) > 1:
+                            for elem in element:
+                                try:
+                                    lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], comboBoxCur.getText().split(" ")[1]))
+                                except IndexError:
+                                    pass
+                        else:
+                            try:
+                                lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(element[0][1], element[0][0], comboBoxCur.getText().split(" ")[1]))
+                            except IndexError:
+                                pass
+                    for element in valuesMonth:
+                        if len(element) > 1:
+                            for elem in element:
+                                try:
+                                    lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], comboBoxCur.getText().split(" ")[1]))
+                                except IndexError:
+                                    pass
+                        else:
+                            try:
+                                lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(element[0][1], element[0][0], comboBoxCur.getText().split(" ")[1]))
+                            except IndexError:
+                                pass
+                else:
+                    insertIntoListBoxes(exp='tak')
+        except NameError:
+            pass
 
     def clear(self):
         """Clears text and items in self"""
@@ -1271,22 +1406,24 @@ def selectDirMoveFiles() -> None:
         restart()
 
 
-def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None) -> None:
+def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None, catName: Category = None) -> None:
     """Adds parameters to database"""
 
     global user
+    if not catName:
+        catName = Category('All')
     if t == 'once':
-        dtbOnce.dataEntry(float(price), exp, user.username, moreInfo)
+        dtbOnce.dataEntry(float(price), exp, user.username, moreInfo, catName)
     elif t == 'month':
-        dtbMonth.dataEntry(float(price), exp, user.username, moreInfo)
+        dtbMonth.dataEntry(float(price), exp, user.username, moreInfo, catName)
     elif t == 'taking':
-        dtbTakings.dataEntry(float(price), exp, user.username, moreInfo)
+        dtbTakings.dataEntry(float(price), exp, user.username, moreInfo, catName)
     elif t == 'takingMonth':
-        dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo)
+        dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo, catName)
     elif t == 'user':
         user = User(exp, price, moreInfo)
     else:
-        raise ValueError
+        raise ValueError('Valid expenseTimes=once, month, taking, takingMonth, user. Your entry=' + t)
 
 
 def addListToJson(name: str, password: str) -> None:
@@ -2070,17 +2207,91 @@ def showUserInfo() -> None:
     
     
 def belongsToUser(username, dtbElements: list) -> list:
-    """Returns all the elements that belong to the user"""
+    """Returns all the elements that belong to the user,  provided you have the element username at the last index"""
 
     results = []
     for element in dtbElements:
-        if str(element[3]) == username:
+        if str(element[-1]) == username:
             results.append(element)
     return results
 
 
-#▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-#▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+def insertIntoListBoxes(exp: str='all'):
+    """Inserts all elements into all the listboxes"""
+
+    dataOnce = []
+    dataMonth = []
+    dataTakings = []
+    dataTakingsMonth = []
+    if user.username in groups:
+        for grp in groups:
+            if user.username == grp:
+                group = Group(grp)
+                usersInGroup = group.getUsersFromGroup()
+                for usr in usersInGroup:
+                    users = dtbUser.readUserDtb()
+                    for us in users:
+                        if us[0] == group.groupName:
+                            users = us
+                    
+                    for data in belongsToUser(usr, dtbOnce.readFromDtb()):
+                        dataOnce.append(data)
+                    for data in belongsToUser(usr, dtbMonth.readFromDtb()):
+                        dataMonth.append(data)
+                    for data in belongsToUser(usr, dtbTakings.readFromDtb()):
+                        dataTakings.append(data)
+                    for data in belongsToUser(usr, dtbTakingsMonth.readFromDtb()):
+                        dataTakingsMonth.append(data)
+
+    else:
+        for data in belongsToUser(user.username, dtbOnce.readFromDtb()):
+            dataOnce.append(data)
+        for data in belongsToUser(user.username, dtbMonth.readFromDtb()):
+            dataMonth.append(data)
+        for data in belongsToUser(user.username, dtbTakings.readFromDtb()):
+            dataTakings.append(data)
+        for data in belongsToUser(user.username, dtbTakingsMonth.readFromDtb()):
+            dataTakingsMonth.append(data)
+
+    if exp == 'all':
+        lstbox.listbox.clear()
+        lstboxMonth.listbox.clear()
+        lstboxTakings.listbox.clear()
+        lstboxTakingsMonth.listbox.clear()
+        for data in dataOnce:
+            try : lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+        for data in dataMonth:
+            try : lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+        for data in dataTakings:
+            try : lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+        for data in dataTakingsMonth:
+            try : lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+    elif exp == 'exp':
+        lstbox.listbox.clear()
+        lstboxMonth.listbox.clear()
+        for data in dataOnce:
+            try : lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+        for data in dataMonth:
+            try : lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+    elif exp == 'tak':
+        lstboxTakings.listbox.clear()
+        lstboxTakingsMonth.listbox.clear()
+        for data in dataTakings:
+            try : lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1])) 
+            except IndexError : pass
+        for data in dataTakingsMonth:
+            try : lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
+            except IndexError : pass
+
+
+#!▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+#!▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
     global categoryType
     # Initialize main app
@@ -2139,11 +2350,6 @@ if __name__ == '__main__':
     dtbExpCategory = DataBase(path + 'Category.db', 'ExpenseCategory', enc='category')
     dtbTakCategory = DataBase(path + 'Category.db', 'TakingsCategory', enc='category')
 
-    expCategories = dtbExpCategory.readFromCategoryDtb()
-    takCategories = dtbTakCategory.readFromCategoryDtb()
-    expCat = Category('All')
-    takCat = Category('All', exp=False)
-
     if isFirstTime:
         user = User(name, pw)
         user.balance = setBankBalance()
@@ -2183,66 +2389,17 @@ if __name__ == '__main__':
     if monthEnd():
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
     
-    #listbox insertion
-    dataOnce = []
-    dataMonth = []
-    dataTakings = []
-    dataTakingsMonth = []
-    if user.username in groups:
-        for grp in groups:
-            if user.username == grp:
-                group = Group(grp)
-                usersInGroup = group.getUsersFromGroup()
-                for usr in usersInGroup:
-                    users = dtbUser.readUserDtb()
-                    for us in users:
-                        if us[0] == group.groupName:
-                            users = us
-                    
-                    for data in belongsToUser(usr, dtbOnce.readFromDtb()):
-                        dataOnce.append(data)
-                    for data in belongsToUser(usr, dtbMonth.readFromDtb()):
-                        dataMonth.append(data)
-                    for data in belongsToUser(usr, dtbTakings.readFromDtb()):
-                        dataTakings.append(data)
-                    for data in belongsToUser(usr, dtbTakingsMonth.readFromDtb()):
-                        dataTakingsMonth.append(data)
+    # categories
+    expCategories = dtbExpCategory.readFromCategoryDtb(enc='user')
+    takCategories = dtbTakCategory.readFromCategoryDtb(enc='user')
+    expCat = Category('All')
+    takCat = Category('All', exp=False)
 
-    else:
-        for data in belongsToUser(user.username, dtbOnce.readFromDtb()):
-            dataOnce.append(data)
-        for data in belongsToUser(user.username, dtbMonth.readFromDtb()):
-            dataMonth.append(data)
-        for data in belongsToUser(user.username, dtbTakings.readFromDtb()):
-            dataTakings.append(data)
-        for data in belongsToUser(user.username, dtbTakingsMonth.readFromDtb()):
-            dataTakingsMonth.append(data)
 
-    for data in dataOnce:
-        try:
-            lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
-        except IndexError:
-            pass
-    for data in dataMonth:
-        try:
-            lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
-        except IndexError:
-            pass
-    for data in dataTakings:
-        try:
-            lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
-        except IndexError:
-            pass
-    for data in dataTakingsMonth:
-        try:
-            lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(data[1], data[0], comboBoxCur.getText().split(" ")[1]))
-        except IndexError:
-            pass
-        
     # Textboxes
     expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16, placeHolder='Name')
     expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16, placeHolder='Price')
-    mainWin.setTabOrder(expNameTxt, expPriceTxt) #! not working! "QWidget::setTabOrder: 'first' and 'second' must be in the same window"
+    mainWin.setTabOrder(expNameTxt.textbox, expPriceTxt.textbox) #! not working! doesnt do anything
 
     # SpinBox for Multiplier
     expMultiTxt = SpinBox(mainWin, text=1, x=350, y=190, width=70, height=30, mincount=1)
@@ -2256,11 +2413,37 @@ if __name__ == '__main__':
     # Category comboboxes
     comboBoxExpCat = ComboBox(mainWin, x=350, y=390, width=100, height=30, fontsize=11)
     comboBoxTakCat = ComboBox(mainWin, x=760, y=390, width=100, height=30, fontsize=11)
-    for catg in expCategories:
-        catInptTxt.addItems(catg)
-        comboBoxExpCat.addItems(catg)
-    for catg in takCategories:
-        comboBoxTakCat.addItems(catg)
+    catsInComboBox = []
+    if user.username not in groups:
+        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
+            if catg[0] not in catsInComboBox:
+                catInptTxt.addItems(catg[0])
+                comboBoxExpCat.addItems(catg[0])
+                catsInComboBox.append(catg[0])
+        catsInComboBox = []
+        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
+            if catg[0] not in catsInComboBox:
+                comboBoxTakCat.addItems(catg[0])
+                catsInComboBox.append(catg[0])
+    else:
+        group = Group(user.username)
+        catsInComboBox = []
+        for usr in group.getUsersFromGroup():
+            for catg in belongsToUser(usr, dtbExpCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    catInptTxt.addItems(catg[0])
+                    comboBoxExpCat.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+        catsInComboBox = []
+        for usr in group.getUsersFromGroup():
+            for catg in belongsToUser(usr, dtbTakCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    comboBoxTakCat.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+
+    comboBoxExpCat.combobox.setCurrentText('All')
+    comboBoxTakCat.combobox.setCurrentText('All')
+    
 
     # Labels
     totalIncome = calculateIncome()
