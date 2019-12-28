@@ -675,10 +675,12 @@ class DataBase:
 
         return totalExpense
 
-    def readFromDtb(self) -> list:
+    def readFromDtb(self, username: str=None) -> list:
         """Reads Expense, Price, MoreInfo from Database"""
-
-        self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table)
+        if not username:
+            self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table)
+        else:
+            self.cursor.execute('SELECT Expense, Price, MoreInfo, Username FROM ' + self.table + ' WHERE Username = ?', (username, ))
         return self.cursor.fetchall()
 
     def readUserDtb(self, username: str=None, arg: str=None) -> list:
@@ -766,7 +768,114 @@ class TextBox(QtWidgets.QLineEdit):
         self.font.setFamily(font)
         self.font.setPointSize(fontsize)
         self.textbox.setFont(self.font)
+        self.textbox.textChanged.connect(self.textChanged)
     
+    def textChanged(self, newText, *args, **kwargs):
+        """Searches for all the elements that contain the typed letter"""
+        if self == expSearchTxt:
+            currency = comboBoxCur.getText().split(' ')[1]
+            newText = newText.lower()
+            comboBoxExpCat.combobox.setCurrentText('All')
+            comboBoxTakCat.combobox.setCurrentText('All')
+
+            if chbOneTime.checkbox.isChecked():
+                lstboxElements = []
+                if user.username not in groups:
+                    lstboxElements = dtbOnce.readFromDtb(user.username)
+                else:
+                    group = Group(user.username)
+                    for usr in group.getUsersFromGroup():
+                        lstboxElements.append(dtbOnce.readFromDtb(usr))
+                lstbox.listbox.clear()
+                
+                for element in lstboxElements:
+                    if user.username not in groups:
+                        if newText == '' or ' ' in newText:
+                            insertIntoListBoxes()
+                            break
+                        elif newText in element[0].lower() or newText in str(element[1]):
+                            lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(element[1], element[0], currency))
+                    else:
+                        for elem in element:
+                            if newText == '' or ' ' in newText:
+                                insertIntoListBoxes()
+                                break
+                            elif newText in elem[0].lower() or newText in str(elem[1]):
+                                lstbox.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], currency))
+
+            elif chbMonthly.checkbox.isChecked():
+                lstboxElements = []
+                if user.username not in groups:
+                    lstboxElements = dtbMonth.readFromDtb(user.username)
+                else:
+                    group = Group(user.username)
+                    for usr in group.getUsersFromGroup():
+                        lstboxElements.append(dtbMonth.readFromDtb(usr))
+                lstboxMonth.listbox.clear()
+                
+                for element in lstboxElements:
+                    if user.username not in groups:
+                        if newText == '' or ' ' in newText:
+                            insertIntoListBoxes()
+                            break
+                        elif newText in element[0].lower() or newText in str(element[1]):
+                            lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(element[1], element[0], currency))
+                    else:
+                        for elem in element:
+                            if newText == '' or ' ' in newText:
+                                insertIntoListBoxes()
+                                break
+                            elif newText in elem[0].lower() or newText in str(elem[1]):
+                                lstboxMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], currency))
+            elif chbTakings.checkbox.isChecked():
+                lstboxElements = []
+                if user.username not in groups:
+                    lstboxElements = dtbTakings.readFromDtb(user.username)
+                else:
+                    group = Group(user.username)
+                    for usr in group.getUsersFromGroup():
+                        lstboxElements.append(dtbTakings.readFromDtb(usr))
+                lstboxTakings.listbox.clear()
+                
+                for element in lstboxElements:
+                    if user.username not in groups:
+                        if newText == '' or ' ' in newText:
+                            insertIntoListBoxes()
+                            break
+                        elif newText in element[0].lower() or newText in str(element[1]):
+                            lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(element[1], element[0], currency))
+                    else:
+                        for elem in element:
+                            if newText == '' or ' ' in newText:
+                                insertIntoListBoxes()
+                                break
+                            elif newText in elem[0].lower() or newText in str(elem[1]):
+                                lstboxTakings.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], currency))
+            elif chbTakingsMonth.checkbox.isChecked():
+                lstboxElements = []
+                if user.username not in groups:
+                    lstboxElements = dtbTakingsMonth.readFromDtb(user.username)
+                else:
+                    group = Group(user.username)
+                    for usr in group.getUsersFromGroup():
+                        lstboxElements.append(dtbTakingsMonth.readFromDtb(usr))
+                lstboxTakingsMonth.listbox.clear()
+                
+                for element in lstboxElements:
+                    if user.username not in groups:
+                        if newText == '' or ' ' in newText:
+                            insertIntoListBoxes()
+                            break
+                        elif newText in element[0].lower() or newText in str(element[1]):
+                            lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(element[1], element[0], currency))
+                    else:
+                        for elem in element:
+                            if newText == '' or ' ' in newText:
+                                insertIntoListBoxes()
+                                break
+                            elif newText in elem[0].lower() or newText in str(elem[1]):
+                                lstboxTakingsMonth.insertItems(0, '{1}, {0:.2f}{2}'.format(elem[1], elem[0], currency))
+
     @property
     def placeHolder(self) -> str:
         """@property placeHolder"""
@@ -1881,12 +1990,14 @@ def chb1CommandHandler() -> None:
     
     global categoryType
     if categoryType != 'Expense':
+        addedCats = []
         catInptTxt.clear()
         for catg in expCategories:
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Expense'
                 addedCats.append(catg[0])
+    expSearchTxt.text = ''
     chbOneTime.unckeckAny(False, chbMonthly, chbTakings, chbTakingsMonth)
 
 
@@ -1895,12 +2006,14 @@ def chb2CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Expense':
+        addedCats = []
         catInptTxt.clear()
         for catg in expCategories:
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Expense'
                 addedCats.append(catg[0])
+    expSearchTxt.text = ''
     chbMonthly.unckeckAny(False, chbOneTime, chbTakings, chbTakingsMonth)
 
 
@@ -1909,12 +2022,14 @@ def chb3CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Taking':
+        addedCats = []
         catInptTxt.clear()
         for catg in takCategories:
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Taking'
                 addedCats.append(catg[0])
+    expSearchTxt.text = ''
     chbTakings.unckeckAny(False, chbMonthly, chbOneTime, chbTakingsMonth)
 
 def chb4CommandHandler() -> None:
@@ -1922,12 +2037,14 @@ def chb4CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Taking':
+        addedCats = []
         catInptTxt.clear()
         for catg in takCategories:
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Taking'
                 addedCats.append(catg[0])
+    expSearchTxt.text = ''
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
 def chb5CommandHandler() -> None:
@@ -2467,6 +2584,9 @@ if __name__ == '__main__':
 
     # moreInfo PlainText
     expInfo = PlainText(mainWin, text='', x=350, y=250, width=510, height=100, fontsize=11, placeHolder='Write more info about your expense here...')
+
+    # seach TextBox, will search through the selected listbox(checkboxes' selection)
+    expSearchTxt = TextBox(mainWin, x=20, y=5, width=150, height=20, fontsize=11, placeHolder='Search')
 
     # Category insertion
     comboBoxExpCat = ComboBox(mainWin, x=350, y=390, width=100, height=30, fontsize=11)
