@@ -76,6 +76,7 @@ class Editor(QtWidgets.QDialog):
         self.lblDateEdit = Label(self.editWin, x=60, y=10, width=550, height=40, fontsize=18)
         self.btnOkEdit = Button(self.editWin, text='Ok', x=590, y=320, width=90, height=35, key='Return', command=self.apply)
         self.btnCancelEdit = Button(self.editWin, text='Cancel', x=700, y=320, width=90, height=35, command=self.close)
+        self.expCategoryTxt = ComboBox(self.editWin, x=540, y=110, width=129, height=30, fontsize=11, isEditable=True)
 
     def apply(self) -> None:
         """takes your selection, and the textbox elements!"""
@@ -84,6 +85,7 @@ class Editor(QtWidgets.QDialog):
         name = editWin.expNameTxtEdit.getText()
         price = editWin.expPriceTxtEdit.getText()
         info = editWin.expInfoEdit.getText()
+        catName = editWin.expCategoryTxt.getText()
 
         try:
             price = float(price)
@@ -92,23 +94,24 @@ class Editor(QtWidgets.QDialog):
                                                     QtWidgets.QMessageBox.Ok)
             if msgbox == QtWidgets.QMessageBox.Ok:
                 return
-        except TypeError:
-            pass
+        except TypeError : pass
+
         if currselectOnceEdit != -1 or currselectTakingsEdit != -1 or currselectMonthEdit != -1 or currselectTakingsMonthEdit != -1:
             if DELCMD == 'focus1' and currselectOnceEdit != -1:
                 lstbox.update(currselectOnceEdit, name, price)
-                dtbOnce.update(currselectOnceEdit, name, price, info)
+                dtbOnce.update(currselectOnceEdit, name, price, info, catName)
             elif DELCMD == 'focus2' and currselectMonthEdit != -1:
                 lstboxMonth.update(currselectMonthEdit, name, price)
-                dtbMonth.update(currselectMonthEdit, name, price, info)
+                dtbMonth.update(currselectMonthEdit, name, price, info, catName)
             elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
                 lstboxTakings.update(currselectTakingsEdit, name, price)
-                dtbTakings.update(currselectTakingsEdit, name, price, info)
+                dtbTakings.update(currselectTakingsEdit, name, price, info, catName)
             elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
                 lstboxTakingsMonth.update(currselectTakingsMonthEdit, name, price)
-                dtbTakingsMonth.update(currselectTakingsMonthEdit, name, price, info)
+                dtbTakingsMonth.update(currselectTakingsMonthEdit, name, price, info, catName)
+            Category(catName)
             updateLbls(1)
-            self.editWin.destroy()
+            self.close()
 
     def close(self) -> None:
         """Closes the editwindow"""
@@ -572,7 +575,7 @@ class DataBase:
         """Enter the ID by which the record is stored and the function will return you a list if you want multiple elements
         of one record or it will return the entire row if no elemIndex given."""
 
-        self.cursor.execute('SELECT ID FROM ' + self.table)
+        self.cursor.execute('SELECT ID FROM ' + self.table + ' WHERE Username = ?', (user.username, ))
         rws = self.cursor.fetchall()
         rws = rws[::-1]
         try:
@@ -580,8 +583,7 @@ class DataBase:
         except IndexError as e:
             print(e)
             return []
-        r = rws[rowid][0]
-        self.cursor.execute('SELECT * FROM ' + self.table + ' WHERE ID = ?', (r,))
+        self.cursor.execute('SELECT * FROM ' + self.table + ' WHERE ID = ?', (r, ))
         row = self.cursor.fetchall()
         returns = []
         for arg in elemIndex:
@@ -690,15 +692,15 @@ class DataBase:
         self.cursor.execute('SELECT Username, Password, BankBalance FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def update(self, rowid: int, name: str, price: float, moreInfo: str) -> None:
+    def update(self, rowid: int, name: str, price: float, moreInfo: str, catName: str='All') -> None:
         """Updates one record with the rowid and replaces the name, price and moreInfo with the passed parameters"""
 
-        self.cursor.execute('SELECT ID FROM ' + self.table)
+        self.cursor.execute('SELECT ID FROM ' + self.table + ' WHERE Username = ?', (user.username, ))
         ids = self.cursor.fetchall()
         ids = ids[::-1]
         ids = ids[rowid][0]
-        self.cursor.execute('UPDATE ' + self.table + ' SET Expense = ?, Price = ?, MoreInfo = ? WHERE ID = ?',
-                            (name, price, moreInfo, ids))
+        self.cursor.execute('UPDATE ' + self.table + ' SET Expense = ?, Price = ?, MoreInfo = ?, Category = ? WHERE ID = ?',
+                            (name, price, moreInfo, catName, ids))
         self.conn.commit()
 
     def destroy(self):
@@ -1474,11 +1476,11 @@ def showExpenseInfo() -> None:
         if infoMonth != [None]: QtWidgets.QMessageBox.information(None, 'Product info', ''.join(infoMonth),
                                                                   QtWidgets.QMessageBox.Ok)
     elif DELCMD == 'focus3' and curselectTakings != -1:
-        infoMonth = dtbTakings.getRowValuesById(curselectMonth, 3)
+        infoMonth = dtbTakings.getRowValuesById(curselectTakings, 3)
         if infoMonth != [None]: QtWidgets.QMessageBox.information(None, 'Product info', ''.join(infoMonth),
                                                                   QtWidgets.QMessageBox.Ok)
     elif DELCMD == 'focus4' and curselectTakingsMonth != -1:
-        infoMonth = dtbTakings.getRowValuesById(curselectMonth, 3)
+        infoMonth = dtbTakingsMonth.getRowValuesById(curselectTakingsMonth, 3)
         if infoMonth != [None]: QtWidgets.QMessageBox.information(None, 'Product info', ''.join(infoMonth),
                                                                   QtWidgets.QMessageBox.Ok)
 
@@ -1881,8 +1883,10 @@ def chb1CommandHandler() -> None:
     if categoryType != 'Expense':
         catInptTxt.clear()
         for catg in expCategories:
-            catInptTxt.addItems(catg)
-            categoryType = 'Expense'
+            if catg[0] not in addedCats:
+                catInptTxt.addItems(catg[0])
+                categoryType = 'Expense'
+                addedCats.append(catg[0])
     chbOneTime.unckeckAny(False, chbMonthly, chbTakings, chbTakingsMonth)
 
 
@@ -1893,8 +1897,10 @@ def chb2CommandHandler() -> None:
     if categoryType != 'Expense':
         catInptTxt.clear()
         for catg in expCategories:
-            catInptTxt.addItems(catg)
-            categoryType = 'Expense'
+            if catg[0] not in addedCats:
+                catInptTxt.addItems(catg[0])
+                categoryType = 'Expense'
+                addedCats.append(catg[0])
     chbMonthly.unckeckAny(False, chbOneTime, chbTakings, chbTakingsMonth)
 
 
@@ -1905,8 +1911,10 @@ def chb3CommandHandler() -> None:
     if categoryType != 'Taking':
         catInptTxt.clear()
         for catg in takCategories:
-            catInptTxt.addItems(catg)
-            categoryType = 'Taking'
+            if catg[0] not in addedCats:
+                catInptTxt.addItems(catg[0])
+                categoryType = 'Taking'
+                addedCats.append(catg[0])
     chbTakings.unckeckAny(False, chbMonthly, chbOneTime, chbTakingsMonth)
 
 def chb4CommandHandler() -> None:
@@ -1916,8 +1924,10 @@ def chb4CommandHandler() -> None:
     if categoryType != 'Taking':
         catInptTxt.clear()
         for catg in takCategories:
-            catInptTxt.addItems(catg)
-            categoryType = 'Taking'
+            if catg[0] not in addedCats:
+                catInptTxt.addItems(catg[0])
+                categoryType = 'Taking'
+                addedCats.append(catg[0])
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
 def chb5CommandHandler() -> None:
@@ -1982,22 +1992,38 @@ def edit() -> None:
     currselectTakingsEdit = lstboxTakings.curselection()
     currselectTakingsMonthEdit = lstboxTakingsMonth.curselection()
     if user.username not in groups:
+
+        editWin.expCategoryTxt.combobox.clear()
+        catsInComboBox = []
+        if DELCMD == 'focus1' or DELCMD == 'focus2':
+            for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    editWin.expCategoryTxt.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+        catsInComboBox = []
+        if  DELCMD == 'focus3' or DELCMD == 'focus4':
+            for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    editWin.expCategoryTxt.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+
         if currselectOnceEdit != -1 or currselectMonthEdit != -1 or currselectTakingsEdit != -1 or currselectTakingsMonthEdit != -1:
 
             # insert all texts
             if DELCMD == 'focus1' and currselectOnceEdit != -1:
-                values = dtbOnce.getRowValuesById(currselectOnceEdit, 1, 2, 3, 4, 5, 6)
+                values = dtbOnce.getRowValuesById(currselectOnceEdit, 1, 2, 3, 4, 5, 6, 8)
             elif DELCMD == 'focus2' and currselectMonthEdit != -1:
-                values = dtbMonth.getRowValuesById(currselectMonthEdit, 1, 2, 3, 4, 5, 6)
+                values = dtbMonth.getRowValuesById(currselectMonthEdit, 1, 2, 3, 4, 5, 6, 8)
             elif DELCMD == 'focus3' and currselectTakingsEdit != -1:
-                values = dtbTakings.getRowValuesById(currselectTakingsEdit, 1, 2, 3, 4, 5, 6)
+                values = dtbTakings.getRowValuesById(currselectTakingsEdit, 1, 2, 3, 4, 5, 6, 8)
             elif DELCMD == 'focus4' and currselectTakingsMonthEdit != -1:
-                values = dtbTakingsMonth.getRowValuesById(currselectTakingsMonthEdit, 1, 2, 3, 4, 5, 6)
+                values = dtbTakingsMonth.getRowValuesById(currselectTakingsMonthEdit, 1, 2, 3, 4, 5, 6, 8)
             
             editWin.lblDateEdit.text = f'This expense was added on {values[3]}-{values[4]}-{values[5]}'
             editWin.expNameTxtEdit.text = str(values[0])
             editWin.expPriceTxtEdit.text = '{0:.2f}'.format((float(values[1])))
             editWin.expInfoEdit.text = str(values[2])
+            editWin.expCategoryTxt.combobox.setCurrentText(values[6])
 
             editWin.show()
     else:
@@ -2290,6 +2316,38 @@ def insertIntoListBoxes(exp: str='all'):
             except IndexError : pass
 
 
+def insertIntoComboBox():
+    """inserts all categories into the combobox"""
+
+    catsInComboBox = []
+    if user.username not in groups:
+        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
+            if catg[0] not in catsInComboBox:
+                catInptTxt.addItems(catg[0])
+                comboBoxExpCat.addItems(catg[0])
+                catsInComboBox.append(catg[0])
+        catsInComboBox = []
+        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
+            if catg[0] not in catsInComboBox:
+                comboBoxTakCat.addItems(catg[0])
+                catsInComboBox.append(catg[0])
+    else:
+        group = Group(user.username)
+        catsInComboBox = []
+        for usr in group.getUsersFromGroup():
+            for catg in belongsToUser(usr, dtbExpCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    catInptTxt.addItems(catg[0])
+                    comboBoxExpCat.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+        catsInComboBox = []
+        for usr in group.getUsersFromGroup():
+            for catg in belongsToUser(usr, dtbTakCategory.readFromCategoryDtb(enc='user')):
+                if catg[0] not in catsInComboBox:
+                    comboBoxTakCat.addItems(catg[0])
+                    catsInComboBox.append(catg[0])
+
+
 #!▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 #!▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 if __name__ == '__main__':
@@ -2309,6 +2367,7 @@ if __name__ == '__main__':
     english = True
     globalUser = 'global'
     categoryType = 'Expense'
+    addedCats = []
 
     # Try to read from dirfile and set path = standart if it catches error
     try:
@@ -2379,7 +2438,7 @@ if __name__ == '__main__':
     if user.username != globalUser:
         user.balance = dtbUser.readUserDtb(user.username)[0][2]
 
-    # Drop down menu for currency
+    # Drop down menu for currency and language
     comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
     comboBoxCur.addItems('Euro €', 'Dollar $', 'Pound £')
     comboBoxLang = ComboBox(mainWin, x=1120, y=0, width=80, height=40, fontsize=11)
@@ -2395,55 +2454,28 @@ if __name__ == '__main__':
     expCat = Category('All')
     takCat = Category('All', exp=False)
 
-
     # Textboxes
     expNameTxt = TextBox(mainWin, x=350, y=100, width=220, height=40, fontsize=16, placeHolder='Name')
     expPriceTxt = TextBox(mainWin, x=590, y=100, width=210, height=40, fontsize=16, placeHolder='Price')
     mainWin.setTabOrder(expNameTxt.textbox, expPriceTxt.textbox) #! not working! doesnt do anything
 
+    # Category input text
+    catInptTxt = ComboBox(mainWin, x=450, y=190, width=129, height=30, fontsize=11, isEditable=True)
+
     # SpinBox for Multiplier
     expMultiTxt = SpinBox(mainWin, text=1, x=350, y=190, width=70, height=30, mincount=1)
 
-    # Extra Info Text
+    # moreInfo PlainText
     expInfo = PlainText(mainWin, text='', x=350, y=250, width=510, height=100, fontsize=11, placeHolder='Write more info about your expense here...')
 
-    # Category input Text
-    catInptTxt = ComboBox(mainWin, x=450, y=190, width=129, height=30, fontsize=11, isEditable=True)
-
-    # Category comboboxes
+    # Category insertion
     comboBoxExpCat = ComboBox(mainWin, x=350, y=390, width=100, height=30, fontsize=11)
     comboBoxTakCat = ComboBox(mainWin, x=760, y=390, width=100, height=30, fontsize=11)
-    catsInComboBox = []
-    if user.username not in groups:
-        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in catsInComboBox:
-                catInptTxt.addItems(catg[0])
-                comboBoxExpCat.addItems(catg[0])
-                catsInComboBox.append(catg[0])
-        catsInComboBox = []
-        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in catsInComboBox:
-                comboBoxTakCat.addItems(catg[0])
-                catsInComboBox.append(catg[0])
-    else:
-        group = Group(user.username)
-        catsInComboBox = []
-        for usr in group.getUsersFromGroup():
-            for catg in belongsToUser(usr, dtbExpCategory.readFromCategoryDtb(enc='user')):
-                if catg[0] not in catsInComboBox:
-                    catInptTxt.addItems(catg[0])
-                    comboBoxExpCat.addItems(catg[0])
-                    catsInComboBox.append(catg[0])
-        catsInComboBox = []
-        for usr in group.getUsersFromGroup():
-            for catg in belongsToUser(usr, dtbTakCategory.readFromCategoryDtb(enc='user')):
-                if catg[0] not in catsInComboBox:
-                    comboBoxTakCat.addItems(catg[0])
-                    catsInComboBox.append(catg[0])
+    insertIntoComboBox()
 
     comboBoxExpCat.combobox.setCurrentText('All')
     comboBoxTakCat.combobox.setCurrentText('All')
-    
+    catInptTxt.combobox.setCurrentText('All')
 
     # Labels
     totalIncome = calculateIncome()
