@@ -8,7 +8,8 @@ All of this will be stored in a database in the chosen directory, which you will
 when you first open the program. I will also add a way to change the path and move all files from the previous one
 to the newer one. One-Time-Expenses categorize all expenses like (butter -> Food) (car repair -> Car), Add another TxtBox, 
 which you can type your Category in it, which will be added to another column in the database and will be able to be sorted 
-with a drop down menu in the lstbox. I will also add a way to view old expenses and change the date at which they were added.
+with a drop down menu in the lstbox. Required is to update the calculateFunctions to show only the value that you have in the listbox.
+I will also add a way to view old expenses and change the date at which they were added.
 """
 
 import json
@@ -493,7 +494,7 @@ class Category:
                 dtbTakCategory.dataEntryCategory(self.name, [usr])
             else:
                 dtbTakCategory.dataEntryCategory(self.name, [user.username])
-            takCategories.append(self.name)
+            takCategories.append((self.name, user.username))
             try:
                 comboBoxTakCat.addItems(self.name)
                 catInptTxt.addItems(self.name)
@@ -2028,18 +2029,36 @@ def createFiles() -> None:
     open(path + 'LastOpened.txt', 'w+')
     f.close()
 
+
+def chbCommandHandler(catType: str, dtb: DataBase) -> None:
+    """Command handler for all the events in the chbs"""
+
+    global categoryType
+    addedCats = []
+    catInptTxt.clear()
+    if user.username in groups:
+        usersInGroup = Group(user.username).getUsersFromGroup()
+        usersInGroup.append(user.username)
+        for usr in usersInGroup:
+            for catg in belongsToUser(usr, dtb.readFromCategoryDtb(enc='user')):
+                if catg[0] not in addedCats:
+                    catInptTxt.addItems(catg[0])
+                    addedCats.append(catg[0])
+        categoryType = catType
+    else:
+        for catg in belongsToUser(user.username, dtb.readFromCategoryDtb(enc='user')):
+            if catg[0] not in addedCats:
+                catInptTxt.addItems(catg[0])
+                addedCats.append(catg[0])
+        categoryType = catType
+
+
 def chb1CommandHandler() -> None:
     """chbCommandHandler, unchecks any other chbs"""
     
     global categoryType
     if categoryType != 'Expense':
-        addedCats = []
-        catInptTxt.clear()
-        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in addedCats:
-                catInptTxt.addItems(catg[0])
-                categoryType = 'Expense'
-                addedCats.append(catg[0])
+        chbCommandHandler('Expense', dtbExpCategory)
     expSearchTxt.text = ''
     chbOneTime.unckeckAny(False, chbMonthly, chbTakings, chbTakingsMonth)
 
@@ -2049,13 +2068,7 @@ def chb2CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Expense':
-        addedCats = []
-        catInptTxt.clear()
-        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in addedCats:
-                catInptTxt.addItems(catg[0])
-                categoryType = 'Expense'
-                addedCats.append(catg[0])
+        chbCommandHandler('Expense', dtbExpCategory)
     expSearchTxt.text = ''
     chbMonthly.unckeckAny(False, chbOneTime, chbTakings, chbTakingsMonth)
 
@@ -2065,13 +2078,7 @@ def chb3CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Taking':
-        addedCats = []
-        catInptTxt.clear()
-        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in addedCats:
-                catInptTxt.addItems(catg[0])
-                categoryType = 'Taking'
-                addedCats.append(catg[0])
+        chbCommandHandler('Taking', dtbTakCategory)
     expSearchTxt.text = ''
     chbTakings.unckeckAny(False, chbMonthly, chbOneTime, chbTakingsMonth)
 
@@ -2080,13 +2087,7 @@ def chb4CommandHandler() -> None:
 
     global categoryType
     if categoryType != 'Taking':
-        addedCats = []
-        catInptTxt.clear()
-        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
-            if catg[0] not in addedCats:
-                catInptTxt.addItems(catg[0])
-                categoryType = 'Taking'
-                addedCats.append(catg[0])
+        chbCommandHandler('Taking', dtbTakCategory)
     expSearchTxt.text = ''
     chbTakingsMonth.unckeckAny(False, chbMonthly, chbOneTime, chbTakings)
 
@@ -2414,6 +2415,7 @@ def insertIntoListBoxes(exp: str='all'):
             if user.username == grp:
                 group = Group(grp)
                 usersInGroup = group.getUsersFromGroup()
+                usersInGroup.append(group.groupName)
                 for usr in usersInGroup:
                     users = dtbUser.readUserDtb()
                     for us in users:
