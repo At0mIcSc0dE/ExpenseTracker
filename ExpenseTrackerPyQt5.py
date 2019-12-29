@@ -59,6 +59,47 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.app.closeAllWindows()
 
+    def contextMenuEvent(self, event):
+        """context menu for main window"""
+
+        menu = QtWidgets.QMenu(self)
+        delAction = menu.addAction('Remove current Expense Category')
+        delActionTak = menu.addAction('Remove current Taking Category')
+        action = menu.exec_(self.mapToGlobal(event.pos()))
+        
+        if action == delAction:
+            text = comboBoxExpCat.combobox.currentText()
+            if text != 'All':
+                if user.username not in groups:
+                    removeCategory(dtbExpCategory, comboBoxExpCat, user.username, text)
+                else:
+                    for usr in Group(user.username).getUsersFromGroup():
+                        removeCategory(dtbExpCategory, comboBoxExpCat, usr)
+        elif action == delActionTak:
+            text = comboBoxTakCat.combobox.currentText()
+            if text != 'All':
+                if user.username not in groups:
+                    removeCategory(dtbTakCategory, comboBoxTakCat, user.username, text)
+                else:
+                    for usr in Group(user.username).getUsersFromGroup():
+                        removeCategory(dtbTakCategory, comboBOxTakCat, usr)
+
+
+def removeCategory(dtb, combo, usr: str, text):
+    """Removes the category and sets the current one = 'ALL'"""
+
+    indexExpCat = combo.combobox.findText(text, QtCore.Qt.MatchFixedString)
+    indexInptCat = catInptTxt.combobox.findText(text, QtCore.Qt.MatchFixedString)
+    catInptTxt.combobox.removeItem(indexInptCat)
+    combo.combobox.removeItem(indexExpCat)
+
+    dtb.cursor.execute('DELETE FROM ' + dtb.table + ' WHERE Name = ? AND Username = ?', (text, usr))
+    dtb.conn.commit()
+    catInptTxt.combobox.setCurrentText('All')
+    combo.combobox.setCurrentText('All')
+    dtb.cursor.close()
+    dtb.conn.close()
+
 
 class Editor(QtWidgets.QDialog):
     """The editor to edit the selected entry"""
@@ -437,6 +478,7 @@ class Category:
             if user.username in groups:
                 group = Group(user.username)
                 dtbExpCategory.dataEntryCategory(self.name, [usr])
+                catInptText.addItems(self.name)
             else:
                 dtbExpCategory.dataEntryCategory(self.name, [user.username])
             expCategories.append((self.name, user.username))
@@ -454,6 +496,7 @@ class Category:
             takCategories.append(self.name)
             try:
                 comboBoxTakCat.addItems(self.name)
+                catInptTxt.addItems(self.name)
             except NameError:
                 pass
 
@@ -1992,7 +2035,7 @@ def chb1CommandHandler() -> None:
     if categoryType != 'Expense':
         addedCats = []
         catInptTxt.clear()
-        for catg in expCategories:
+        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Expense'
@@ -2008,7 +2051,7 @@ def chb2CommandHandler() -> None:
     if categoryType != 'Expense':
         addedCats = []
         catInptTxt.clear()
-        for catg in expCategories:
+        for catg in belongsToUser(user.username, dtbExpCategory.readFromCategoryDtb(enc='user')):
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Expense'
@@ -2024,7 +2067,7 @@ def chb3CommandHandler() -> None:
     if categoryType != 'Taking':
         addedCats = []
         catInptTxt.clear()
-        for catg in takCategories:
+        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Taking'
@@ -2039,7 +2082,7 @@ def chb4CommandHandler() -> None:
     if categoryType != 'Taking':
         addedCats = []
         catInptTxt.clear()
-        for catg in takCategories:
+        for catg in belongsToUser(user.username, dtbTakCategory.readFromCategoryDtb(enc='user')):
             if catg[0] not in addedCats:
                 catInptTxt.addItems(catg[0])
                 categoryType = 'Taking'
