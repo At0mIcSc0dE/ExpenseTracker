@@ -24,6 +24,13 @@ from time import time
 from matplotlib.pyplot import legend, plot, show, title, xlabel, ylabel
 # from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5 import QtCore, QtGui, QtWidgets
+from inspect import currentframe
+
+
+def lineno():
+    """returns the current line number in code"""
+
+    return currentframe().f_back.f_lineno
 
 global path, expenseDtbPath
 DEFAULTFONT = 'MS Shell Dlg 2'
@@ -136,7 +143,7 @@ class Editor(QtWidgets.QDialog):
                                                     QtWidgets.QMessageBox.Ok)
             if msgbox == QtWidgets.QMessageBox.Ok:
                 return
-        except TypeError : pass
+        except TypeError as e : print(f'{e}; {lineno()}')
 
         if currselectOnceEdit != -1 or currselectTakingsEdit != -1 or currselectMonthEdit != -1 or currselectTakingsMonthEdit != -1:
             if DELCMD == 'focus1' and currselectOnceEdit != -1:
@@ -342,8 +349,7 @@ class User:
                     data = dtbUser.readUserDtb(username=user)
                     try:
                         balances.append(dtbUser.readUserDtb(username=user)[0][2])
-                    except IndexError:
-                        pass
+                    except IndexError as e : print(f'{e}; {lineno()}')
             
             for bal in balances:
                 self.balance += float(bal)
@@ -486,8 +492,7 @@ class Category:
             try:
                 catInptTxt.addItems(self.name)
                 comboBoxExpCat.addItems(self.name)
-            except NameError:
-                pass
+            except NameError as e : print(f'{e}; {lineno()}')
         else:
             if user.username in groups:
                 group = Group(user.username)
@@ -498,8 +503,7 @@ class Category:
             try:
                 comboBoxTakCat.addItems(self.name)
                 catInptTxt.addItems(self.name)
-            except NameError:
-                pass
+            except NameError as e : print(f'{e}; {lineno()}')
 
     @property
     def name(self):
@@ -625,7 +629,7 @@ class DataBase:
         try:
             r = rws[rowid][0]
         except IndexError as e:
-            print(e)
+            print(f'{e}; {lineno()}')
             return []
         self.cursor.execute('SELECT * FROM ' + self.table + ' WHERE ID = ?', (r, ))
         row = self.cursor.fetchall()
@@ -978,17 +982,13 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         for item in self.getAllItems():
             item = item.split(', ')[1].strip(comboBoxCur.getText().split(' ')[1])
             totalExpense += float(item)
-        print(totalExpense)
         return totalExpense
 
     def getAllItems(self):
         """returns a list of all items, generator"""
 
-        # retval = []
         for i in range(self.listbox.count()):
-            # retval.append(self.listbox.item(i))
             yield self.listbox.item(i).text()
-        # return retval
 
     def itemChanged(self, current: QtWidgets.QListWidgetItem, previous: QtWidgets.QListWidgetItem):
         """Event handler for item changed signal, updates userWin.lstboxUsersInGroup"""
@@ -1001,8 +1001,7 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 userWin.lstboxUsersInGroup.listbox.clear()
                 for user in users:
                     userWin.lstboxUsersInGroup.insertItems(0, user)
-        except NameError:
-            pass
+        except NameError as e : print(f'{e}; {lineno()}')
     
     @staticmethod
     def lstboxCleaner(*listboxes):
@@ -1303,7 +1302,9 @@ class ComboBox(QtWidgets.QComboBox):
                                 pass
                 else:
                     insertIntoListBoxes(exp='exp')
-                updateLbls(1)
+                currency = comboBoxCur.getText().split(' ')[1]
+                if english : lblTotalSpending.text = 'Your total spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
+                elif german: lblTotalSpending.text = 'Ihr gesamtes Ausgaben: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
             elif self == comboBoxTakCat:
                 if newText != 'All':
                     if user.username not in groups:
@@ -1341,9 +1342,10 @@ class ComboBox(QtWidgets.QComboBox):
                                 pass
                 else:
                     insertIntoListBoxes(exp='tak')
-                updateLbls()
-        except NameError:
-            pass
+                currency = comboBoxCur.getText().split(' ')[1]
+                if english : lblTotalIncome.text = 'Your total income: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
+                elif german: lblTotalIncome.txt = 'Ihr gesamtes Einnahmen: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
+        except NameError as e : print(f'{e}; {lineno()}')
 
     def clear(self):
         """Clears text and items in self"""
@@ -1827,6 +1829,9 @@ def changeLanguageEnglish(win=None) -> None:
         lblInfoCatExp.text = 'Change Expense Category'
         lblInfoCatTak.text = 'Change Taking Category'
         lblInfoCatInpt.text = 'Enter Category'
+        currency = comboBoxCur.getText().split(' ')[1]
+        lblTotalSpending.text = 'Your total spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
+        lblTotalIncome.text = 'Your total income: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
         if user.username == globalUser:
             editUserBtn.text = 'Edit Users'
         if win:
@@ -1843,8 +1848,7 @@ def changeLanguageEnglish(win=None) -> None:
             win.chbAddUserToGroup.text = 'User in User Group'
             win.lblinfoBalance.text = 'Bank Balance'
             win.lblUserGroup.text = 'Users in Group'
-    except NameError:
-        pass
+    except NameError as e : print(f'{e}; {lineno()}')
 
 
 def changeLanguageGerman(win=None) -> None:
@@ -1876,6 +1880,9 @@ def changeLanguageGerman(win=None) -> None:
     lblInfoCatExp.text = 'Verändere Ausgabenkategorie'
     lblInfoCatTak.text = 'Verändere Einnahmenkategorie'
     lblInfoCatInpt.text = 'Category eingeben'
+    currency = comboBoxCur.getText().split(' ')[1]
+    lblTotalSpending.text = 'Ihr gesamten Ausgaben: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
+    lblTotalIncome.text = 'Ihr gesamten Einnagmen: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
     if user.username == globalUser:
         editUserBtn.text = 'Benutzer verwalten'
     if win:
@@ -2002,12 +2009,10 @@ def createFiles() -> None:
 
     try:
         mkdir('C:/tmp/')
-    except:
-        pass
+    except Exception as e : print(f'{e}; {lineno()}')
     try:
         mkdir(path)
-    except:
-        pass
+    except Exception as e : print(f'{e}; {lineno()}')
     f = open('C:/tmp/groups.json', 'w')
     data = {'groups': {'global': []}, 'passwords': {}}
     json.dump(data, f, indent=4)
@@ -2124,7 +2129,6 @@ def chb7CommandHandler() -> None:
     try:
         selection = userWin.lstboxUserGroup.listbox.currentItem().text().split(',')[0].strip('"')
     except AttributeError:
-        # QtWidgets.QMessageBox.information(userWin, 'No selection', 'Please select a user and a user group to display')
         return
     jsonData = readFromJson()['groups'][selection]
     for data in jsonData:
@@ -2271,8 +2275,7 @@ def deleteUser():
             for group in data['groups']:
                 try:
                     data['groups'][group].remove(text)
-                except ValueError:
-                    pass
+                except ValueError as e : print(f'{e}; {lineno()}')
             
             with open('C:/tmp/groups.json', 'w') as file:
                 json.dump(data, file, indent=4)
@@ -2635,12 +2638,13 @@ if __name__ == '__main__':
     totalexp = calculateResult()
     totalBank = calculateBank()
     totalSpending = lstbox.cal() + lstboxMonth.cal()
+    totalIncome = lstboxTakings.cal() + lstboxTakingsMonth.cal()
     lblInfoCatExp = Label(mainWin, x=350, y=360, width=300, height=20, fontsize=11, text='Change Expense Category')
     lblInfoCatTak = Label(mainWin, x=700, y=360, width=300, height=20, fontsize=11, text='Change Taking Category')
     lblInfoCatInpt = Label(mainWin, x=450, y=170, width=200, fontsize=13, height=20, text='Enter Category')
     lblBrutto = Label(mainWin, x=400, y=10, height=50, width=500, fontsize=17,
                       text='Your monthly brutto budget: {0:.2f}{1}'.format(totalIncome, comboBoxCur.getText().split(" ")[1]))
-    lblNetto = Label(mainWin, y=480, height=50, width=500, fontsize=17,
+    lblNetto = Label(mainWin, y=510, height=50, width=500, fontsize=15,
                      text='Your remaining budget: {0:.2f}{1}'.format(totalexp, comboBoxCur.getText().split(' ')[1]),
                      x=400)
     lbloneTime = Label(mainWin, 'One-Time-Expenses', 20, 30, 170, 20, fontsize=14)
@@ -2650,10 +2654,12 @@ if __name__ == '__main__':
     lblinfoExp = Label(mainWin, 'Name', 350, 75, 160, 20, fontsize=13)
     lblinfoPrice = Label(mainWin, 'Price', 590, 75, 160, 20, fontsize=13)
     lblinfoMulti = Label(mainWin, 'Multiplier', 350, 170, 100, 20, fontsize=13)
-    lblNettoBank = Label(mainWin, x=400, y=530, height=50, width=500, fontsize=17,
+    lblNettoBank = Label(mainWin, x=400, y=550, height=50, width=500, fontsize=15,
                          text='Your remaining bank balance: {0:.2f}{1}'.format(totalBank, comboBoxCur.getText().split(' ')[1]))
-    lblTotalSpending = Label(mainWin, x=400, y=430, height=50, width=500, fontsize=17,
+    lblTotalSpending = Label(mainWin, x=400, y=430, height=50, width=500, fontsize=15,
                              text='Your total spending: {0:.2f}{1}'.format(totalSpending, comboBoxCur.getText().split(' ')[1]))
+    lblTotalIncome = Label(mainWin, x=400, y=470, height=50, width=500, fontsize=15,
+                           text='Your total income: {0:.2f}{1}'.format(totalIncome, comboBoxCur.getText().split(' ')[1]))
 
     # Checkboxes
     chbOneTime = CheckBox(mainWin, text='One-Time-Expense', command=chb1CommandHandler, x=620, y=160, width=250,
