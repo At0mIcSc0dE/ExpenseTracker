@@ -666,7 +666,7 @@ class DataBase:
     def removeFromDtb(self, currselect: int=None, username: str=None) -> None:
         """Removes item with the reversed rowid from listbox"""
         if currselect is not None:
-            self.cursor.execute('SELECT ID FROM ' + self.table)
+            self.cursor.execute('SELECT ID FROM ' + self.table + ' WHERE Username = ?', (user.username, ))
             rws = self.cursor.fetchall()
             rws = rws[::-1]
             rw = rws[currselect]
@@ -1303,6 +1303,7 @@ class ComboBox(QtWidgets.QComboBox):
                                 pass
                 else:
                     insertIntoListBoxes(exp='exp')
+                updateLbls(1)
             elif self == comboBoxTakCat:
                 if newText != 'All':
                     if user.username not in groups:
@@ -1340,6 +1341,7 @@ class ComboBox(QtWidgets.QComboBox):
                                 pass
                 else:
                     insertIntoListBoxes(exp='tak')
+                updateLbls()
         except NameError:
             pass
 
@@ -1456,12 +1458,15 @@ def updateLbls(focus: int=None):
     """Updates lbls"""
 
     if focus == 1:
-        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), comboBoxCur.getText().split(" ")[1])
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
+        currency = comboBoxCur.getText().split(' ')[1]
+        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), currency)
+        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), currency)
+        lblTotalSpending.text = 'Your total Spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
     else:
-        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), comboBoxCur.getText().split(" ")[1])
-        lblBrutto.text = 'Your monthly brutto budget: {0:.2f}{1}'.format(calculateIncome(), comboBoxCur.getText().split(" ")[1])
-        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), comboBoxCur.getText().split(' ')[1])
+        lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), currency)
+        lblBrutto.text = 'Your monthly brutto budget: {0:.2f}{1}'.format(calculateIncome(), currency)
+        lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), currency)
+        lblTotalSpending.text = 'Your total Spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
 
 
 def delSelectedItem() -> None:
@@ -1712,85 +1717,36 @@ def writeToTxtFile(pa: str, text: str) -> None:
         f.write(str(text))
 
 
-def calculateResult(userName: str='NONE') -> float:
+def calculateResult() -> float:
     """Returns the end result of the expense calculation"""
 
-    if userName == 'NONE':
-        userName = user.username
-
     result = 0
-    for usr in dtbUser.getUsers():
-        if usr[0] == userName:
-            if usr[0] in groups:
-
-                with open('C:/tmp/groups.json') as file:
-                    data = json.load(file)
-
-                for us in data['groups'][usr[0]]:
-                    if us not in groups:
-                        # result += calculateIncome(us) - (dtbOnce.cal(us) + dtbMonth.cal(us))
-                        result += calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
-                break
-            # result += calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName))
-            result += calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
-            break
+    if user.username in groups:
+        result = calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
+    else:
+        result = calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
     return round(result, 2)
 
 
 def calculateIncome() -> float:
     """Returns the sum of all the monthly income sources"""
-    
-    # if userName == 'NONE':
-        # userName = user.username
 
-    income = 0
-    for usr in dtbUser.getUsers():
-        if usr[0] == user.username:
-            if usr[0] in groups:
-
-                with open('C:/tmp/groups.json') as file:
-                    data = json.load(file)
-
-                for us in data['groups'][usr[0]]:
-                    if us not in groups:
-                        # income += dtbTakings.cal(us) + dtbTakingsMonth.cal(us)
-                        income += lstboxTakings.cal() + lstboxTakingsMonth.cal()
-                break
-            # income += dtbTakings.cal(userName) + dtbTakingsMonth.cal(userName)
-            income += lstboxTakings.cal() + lstboxTakingsMonth.cal()
-            break
+    income = lstboxTakings.cal() + lstboxTakingsMonth.cal()    
     return round(income, 2)
 
 
-def calculateBank(userName: str='NONE') -> float:
+def calculateBank() -> float:
     """Returns the money left from your bank ballance"""
 
-    try:
-        if userName == 'NONE':
-            userName = user.username
-
-        balance = 0
-        for usr in dtbUser.getUsers():
-            if usr[0] == userName:
-                if usr[0] in groups:
-
-                    with open('C:/tmp/groups.json') as file:
-                        data = json.load(file)
-
-                    for us in data['groups'][usr[0]]:
-                        if us not in groups:
-                            try:
-                                # balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
-                                balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome() - lstbox.cal() - lstboxMonth.cal()
-                            except IndexError:
-                                pass
-                    break
-                # balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
-                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome() - lstbox.cal() - lstboxMonth.cal()
-                break
-        return round(balance, 2)
-    except TypeError:
-        return setBankBalance()
+    balance = 0
+    if user.username in groups:
+        for usr in Group(user.username).getUsersFromGroup():
+            if usr not in groups:
+                balance += dtbUser.getUserBalance(usr)[0][0]
+        balance += calculateIncome() - lstbox.cal() - lstboxMonth.cal()
+    else:
+        balance += dtbUser.getUserBalance(user.username)[0][0] + calculateIncome() - lstbox.cal() - lstboxMonth.cal()
+    return round(balance, 2)
 
 
 def setBankBalance() -> float:
@@ -2678,6 +2634,7 @@ if __name__ == '__main__':
     totalIncome = calculateIncome()
     totalexp = calculateResult()
     totalBank = calculateBank()
+    totalSpending = lstbox.cal() + lstboxMonth.cal()
     lblInfoCatExp = Label(mainWin, x=350, y=360, width=300, height=20, fontsize=11, text='Change Expense Category')
     lblInfoCatTak = Label(mainWin, x=700, y=360, width=300, height=20, fontsize=11, text='Change Taking Category')
     lblInfoCatInpt = Label(mainWin, x=450, y=170, width=200, fontsize=13, height=20, text='Enter Category')
@@ -2695,6 +2652,8 @@ if __name__ == '__main__':
     lblinfoMulti = Label(mainWin, 'Multiplier', 350, 170, 100, 20, fontsize=13)
     lblNettoBank = Label(mainWin, x=400, y=530, height=50, width=500, fontsize=17,
                          text='Your remaining bank balance: {0:.2f}{1}'.format(totalBank, comboBoxCur.getText().split(' ')[1]))
+    lblTotalSpending = Label(mainWin, x=400, y=430, height=50, width=500, fontsize=17,
+                             text='Your total spending: {0:.2f}{1}'.format(totalSpending, comboBoxCur.getText().split(' ')[1]))
 
     # Checkboxes
     chbOneTime = CheckBox(mainWin, text='One-Time-Expense', command=chb1CommandHandler, x=620, y=160, width=250,
