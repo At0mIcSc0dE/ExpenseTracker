@@ -970,6 +970,26 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
         self.listbox.currentItemChanged.connect(self.itemChanged)
         self.listbox.installEventFilter(self)
 
+    def cal(self):
+        """functions like the database.cal() method with the exception that it uses data based on the listbox"""
+
+        totalExpense = 0
+        expenses = []
+        for item in self.getAllItems():
+            item = item.split(', ')[1].strip(comboBoxCur.getText().split(' ')[1])
+            totalExpense += float(item)
+        print(totalExpense)
+        return totalExpense
+
+    def getAllItems(self):
+        """returns a list of all items, generator"""
+
+        # retval = []
+        for i in range(self.listbox.count()):
+            # retval.append(self.listbox.item(i))
+            yield self.listbox.item(i).text()
+        # return retval
+
     def itemChanged(self, current: QtWidgets.QListWidgetItem, previous: QtWidgets.QListWidgetItem):
         """Event handler for item changed signal, updates userWin.lstboxUsersInGroup"""
 
@@ -1236,7 +1256,7 @@ class ComboBox(QtWidgets.QComboBox):
     def currentTextChanged(self, newText: str) -> None:
         """Change event for different selection in combobox"""
         try:
-            if self == comboBoxCur:
+            if self == comboBoxLang:
                 global german, english
                 if newText == 'English':
                     changeLanguageEnglish(english)
@@ -1708,22 +1728,24 @@ def calculateResult(userName: str='NONE') -> float:
 
                 for us in data['groups'][usr[0]]:
                     if us not in groups:
-                        result += calculateIncome(us) - (dtbOnce.cal(us) + dtbMonth.cal(us))
+                        # result += calculateIncome(us) - (dtbOnce.cal(us) + dtbMonth.cal(us))
+                        result += calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
                 break
-            result += calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName))
+            # result += calculateIncome(userName) - (dtbOnce.cal(userName) + dtbMonth.cal(userName))
+            result += calculateIncome() - (lstbox.cal() + lstboxMonth.cal())
             break
     return round(result, 2)
 
 
-def calculateIncome(userName: str='NONE') -> float:
+def calculateIncome() -> float:
     """Returns the sum of all the monthly income sources"""
     
-    if userName == 'NONE':
-        userName = user.username
+    # if userName == 'NONE':
+        # userName = user.username
 
     income = 0
     for usr in dtbUser.getUsers():
-        if usr[0] == userName:
+        if usr[0] == user.username:
             if usr[0] in groups:
 
                 with open('C:/tmp/groups.json') as file:
@@ -1731,9 +1753,11 @@ def calculateIncome(userName: str='NONE') -> float:
 
                 for us in data['groups'][usr[0]]:
                     if us not in groups:
-                        income += dtbTakings.cal(us) + dtbTakingsMonth.cal(us)
+                        # income += dtbTakings.cal(us) + dtbTakingsMonth.cal(us)
+                        income += lstboxTakings.cal() + lstboxTakingsMonth.cal()
                 break
-            income += dtbTakings.cal(userName) + dtbTakingsMonth.cal(userName)
+            # income += dtbTakings.cal(userName) + dtbTakingsMonth.cal(userName)
+            income += lstboxTakings.cal() + lstboxTakingsMonth.cal()
             break
     return round(income, 2)
 
@@ -1756,11 +1780,13 @@ def calculateBank(userName: str='NONE') -> float:
                     for us in data['groups'][usr[0]]:
                         if us not in groups:
                             try:
-                                balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
+                                # balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome(us) - dtbOnce.cal(us) - dtbMonth.cal(us)
+                                balance += dtbUser.getUserBalance(us)[0][0] + calculateIncome() - lstbox.cal() - lstboxMonth.cal()
                             except IndexError:
                                 pass
                     break
-                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
+                # balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome(userName) - dtbOnce.cal(userName) - dtbMonth.cal(userName)
+                balance += dtbUser.getUserBalance(usr[0])[0][0] + calculateIncome() - lstbox.cal() - lstboxMonth.cal()
                 break
         return round(balance, 2)
     except TypeError:
@@ -1842,6 +1868,9 @@ def changeLanguageEnglish(win=None) -> None:
         lblNettoBank.text = 'Your remaining bank balance: ' + str(calculateBank())
         moreInfoBtn.text = 'More Info'
         userOriginBtn.text = 'See user'
+        lblInfoCatExp.text = 'Change Expense Category'
+        lblInfoCatTak.text = 'Change Taking Category'
+        lblInfoCatInpt.text = 'Enter Category'
         if user.username == globalUser:
             editUserBtn.text = 'Edit Users'
         if win:
@@ -1888,6 +1917,9 @@ def changeLanguageGerman(win=None) -> None:
     lblMonthlyTakings.text = 'Monatliche Einnahmen'
     lblNettoBank.text = 'Ihr überbleibendes Bankguthaben: ' + str(calculateBank())
     userOriginBtn.text = 'Benutzer anzeigen'
+    lblInfoCatExp.text = 'Verändere Ausgabenkategorie'
+    lblInfoCatTak.text = 'Verändere Einnahmenkategorie'
+    lblInfoCatInpt.text = 'Category eingeben'
     if user.username == globalUser:
         editUserBtn.text = 'Benutzer verwalten'
     if win:
@@ -2693,7 +2725,6 @@ if __name__ == '__main__':
         editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
     
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
-
     # start the app
     mainWin.show()
     # sys.exit(app.app.exec_())
