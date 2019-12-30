@@ -82,7 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     removeCategory(dtbExpCategory, comboBoxExpCat, user.username, text)
                 else:
                     for usr in Group(user.username).getUsersFromGroup():
-                        removeCategory(dtbExpCategory, comboBoxExpCat, usr)
+                        removeCategory(dtbExpCategory, comboBoxExpCat, usr, text)
         elif action == delActionTak:
             text = comboBoxTakCat.combobox.currentText()
             if text != 'All':
@@ -90,7 +90,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     removeCategory(dtbTakCategory, comboBoxTakCat, user.username, text)
                 else:
                     for usr in Group(user.username).getUsersFromGroup():
-                        removeCategory(dtbTakCategory, comboBOxTakCat, usr)
+                        removeCategory(dtbTakCategory, comboBoxTakCat, usr, text)
 
 
 def removeCategory(dtb, combo, usr: str, text):
@@ -298,11 +298,11 @@ class UserInfoEditor:
                 json.dump(data, file, indent=4)
 
             dtbOnce.cursor.execute('UPDATE OneTimeExpenseTable SET Username = ? WHERE Username = ?', (name, oldName))
-            dtbMonthrsor.execute('UPDATE MonthlyExpenseTable SET Username = ? WHERE Username = ?', (name, oldName))
+            dtbMonth.cursor.execute('UPDATE MonthlyExpenseTable SET Username = ? WHERE Username = ?', (name, oldName))
             dtbTakings.cursor.execute('UPDATE OneTimeTakingsTable SET Username = ? WHERE Username = ?', (name, oldName))
             dtbTakingsMonth.cursor.execute('UPDATE MonthlyTakingsTable SET Username = ? WHERE Username = ?', (name, oldName))
             dtbOnce.conn.commit()
-            dtbMOnth.conn.commit()
+            dtbMonth.conn.commit()
             dtbTakings.conn.commit()
             dtbTakingsMonth.conn.commit()
 
@@ -481,11 +481,13 @@ class Category:
                 self.addCategroy()
 
     def addCategroy(self, usr: str=None):
+        """Adds category to lists, comboboxes"""
+
         if self.exp:
             if user.username in groups:
                 group = Group(user.username)
                 dtbExpCategory.dataEntryCategory(self.name, [usr])
-                catInptText.addItems(self.name)
+                catInptTxt.addItems(self.name)
             else:
                 dtbExpCategory.dataEntryCategory(self.name, [user.username])
             expCategories.append((self.name, user.username))
@@ -507,10 +509,14 @@ class Category:
 
     @property
     def name(self):
+        """property name"""
+
         return self._name
 
     @name.setter
     def name(self, value):
+        """name.setter"""
+
         self._name = value
 
 
@@ -1059,7 +1065,7 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
                 category = (dtbMonth.getRowValuesById(currselect[0], 8))
             elif expenseTime == ('dup', 'taking'):
                 moreInfo = dtbTakings.getRowValuesById(currselect[0], 3)
-                category = (dtbTakings.setRowValuesById(currselect[0], 8))
+                category = (dtbTakings.getRowValuesById(currselect[0], 8))
             elif expenseTime == ('dup', 'takingMonth'):
                 moreInfo = dtbTakingsMonth.getRowValuesById(currselect[0], 3)
                 category = (dtbTakingsMonth.getRowValuesById(currselect[0], 8))
@@ -1344,7 +1350,7 @@ class ComboBox(QtWidgets.QComboBox):
                     insertIntoListBoxes(exp='tak')
                 currency = comboBoxCur.getText().split(' ')[1]
                 if english : lblTotalIncome.text = 'Your total income: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
-                elif german: lblTotalIncome.txt = 'Ihr gesamtes Einnahmen: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
+                elif german: lblTotalIncome.text = 'Ihr gesamtes Einnahmen: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
         except NameError as e : print(f'{e}; {lineno()}')
 
     def clear(self):
@@ -1929,8 +1935,10 @@ def monthEnd() -> bool:
         msgbox.setIcon(QtWidgets.QMessageBox.Information)
         msgbox.setWindowTitle('New month!')
 
+        # ! not working!
+        balance = calculateBank()
         for user in dtbUser.getUsers():
-            dtbUser.updateUser(balance=calculateBank(user[0]), username=user[0])
+            dtbUser.updateUser(balance=balance, username=user[0])
 
         for data in dtbOnce.getAllRecords():
             dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
