@@ -9,7 +9,8 @@ when you first open the program. I will also add a way to change the path and mo
 to the newer one. One-Time-Expenses categorize all expenses like (butter -> Food) (car repair -> Car), Add another TxtBox, 
 which you can type your Category in it, which will be added to another column in the database and will be able to be sorted 
 with a drop down menu in the lstbox. Required is to update the calculateFunctions to show only the value that you have in the listbox.
-I will also add a way to view old expenses and change the date at which they were added.
+I will also add a way to view old expenses and change the date at which they were added. I will also add an automatic system to check
+conversion rates, WWW
 """
 
 import json
@@ -25,6 +26,7 @@ from matplotlib.pyplot import legend, plot, show, title, xlabel, ylabel
 # from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5 import QtCore, QtGui, QtWidgets
 from inspect import currentframe
+from threading import Thread
 
 
 def lineno():
@@ -580,7 +582,7 @@ class DataBase:
     def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None, typ: str='main') -> None:
         """Updates all balances and writes them to DTB:"""
 
-        if password and oldUsername is None and typ == 'main':
+        if balance and username is not None and typ == 'main':
             if username not in groups:
                 self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
                 self.conn.commit()
@@ -650,15 +652,11 @@ class DataBase:
         self.cursor.execute('SELECT * FROM ' + self.table)
         return self.cursor.fetchall()
 
-    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None, catName: Category = None):
+    def dataEntry(self, price: float, exp: str, username: str = '', moreInfo: str = None, catName: str = 'All', day: str = str(datetime.fromtimestamp(time()).strftime('%d')), month: str = str(datetime.fromtimestamp(time()).strftime('%m')), year: str = str(datetime.fromtimestamp(time()).strftime('%Y'))):
         """Enters data into a database"""
 
-        if not catName:
-            catName = Category('All')
-
-        day, month, year = str(datetime.fromtimestamp(time()).strftime('%d-%m-%Y')).split('-')
         self.cursor.execute('INSERT INTO ' + self.table + ' (Expense, Price, MoreInfo, Day, Month, Year, Username, Category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username, catName.name))
+                            (exp, price, moreInfo.rstrip('\n'), day, month, year, username, catName))
         self.conn.commit()
 
     def dataEntryUser(self, username: str, password: str, balance: str) -> None:
@@ -765,6 +763,21 @@ class DataBase:
         self.cursor.close()
         self.conn.close()
         del self
+
+
+class Calendar(QtWidgets.QCalendarWidget):
+    """calendar class for QCalendarWidget"""
+
+    def __init__(self, win: (QtWidgets.QMainWindow, QtWidgets.QDialog), x: int=0, y: int=0, width: int=75, height: int=23):
+        super().__init__()
+        self.calendar = QtWidgets.QCalendarWidget(win)
+        self.calendar.setGeometry(QtCore.QRect(x, y, width, height))
+        # self.calendar.show()
+
+    def getDate(self):
+        """returns the date which was selected in the qcalendar widget"""
+
+        return self.calendar.selectedDate()
 
 
 class Button(QtWidgets.QPushButton):
@@ -1163,6 +1176,11 @@ class ListBox(QtWidgets.QListWidget, QtWidgets.QWidget):
             self.insertItems(selection, f'"{name}", "{price}"')
         self.listbox.setCurrentRow(selection)
 
+    def clear(self):
+        """clears listobx"""
+
+        self.listbox.clear()
+
 
 class CheckBox(QtWidgets.QCheckBox, QtWidgets.QAbstractButton):
     """Simplified class for PyQt5.QtWidgets.QCheckBox CheckBox"""
@@ -1258,10 +1276,34 @@ class ComboBox(QtWidgets.QComboBox):
 
         return self.combobox.currentText()
 
+    call = 0
     def currentTextChanged(self, newText: str) -> None:
         """Change event for different selection in combobox"""
+
         try:
-            if self == comboBoxLang:
+            if self == comboBoxCur:
+                if newText == 'Euro €':
+                    lstbox.clear()
+                    if user.username not in groups:
+                        for item in belongsToUser(user.username, dtbOnce.getAllRecords()):
+                            item, price = item[1], item[2]
+                            item = '{1}, {0:.2f}{2}'.format(price, item, '€')
+                            lstbox.insertItems(0, item)
+                    else:
+                        pass
+                    
+                elif newText == 'Dollar $':
+                    lstbox.clear()
+                    exchangeRate = getCurrentEURtoUSD()
+                    if user.username not in groups:
+                        for item in belongsToUser(user.username, dtbOnce.getAllRecords()):
+                            item, price = item[1], item[2]
+                            item = '{1}, {0:.2f}{2}'.format(round(price * exchangeRate, 2), item, '$')
+                            lstbox.insertItems(0, item)
+                    else:
+                        pass
+
+            elif self == comboBoxLang:
                 global german, english
                 if newText == 'English':
                     changeLanguageEnglish(english)
@@ -1367,15 +1409,15 @@ class PlainText(QtWidgets.QPlainTextEdit):
                  font: str = DEFAULTFONT, fontsize: int = 8) -> None:
         super().__init__()
         self._text = text
+        self._placeHolder = placeHolder
         self.plain = QtWidgets.QPlainTextEdit(win)
-        self.plain.setPlaceholderText(placeHolder)
+        self.plain.setPlaceholderText(self.placeHolder)
         self.plain.setGeometry(QtCore.QRect(x, y, width, height))
         self.plain.insertPlainText(self.text)
         self.font = QtGui.QFont()
         self.font.setPointSize(fontsize)
         self.font.setFamily(font)
         self.plain.setFont(self.font)
-        # self.plain.installEventFilter(self)
 
     @property
     def text(self) -> str:
@@ -1394,6 +1436,19 @@ class PlainText(QtWidgets.QPlainTextEdit):
         """:returns the current text of the plain"""
 
         return self.plain.toPlainText()
+
+    @property
+    def placeHolder(self):
+        """property placeHolder"""
+
+        return self._placeHolder
+
+    @placeHolder.setter
+    def placeHolder(self, value):
+        """placeHOlder.setter"""
+
+        self._placeHolder = value
+        self.plain.setPlaceholderText(value)
 
 
 class Label(QtWidgets.QLabel):
@@ -1465,8 +1520,8 @@ class SpinBox(QtWidgets.QSpinBox):
 def updateLbls(focus: int=None):
     """Updates lbls"""
 
+    currency = comboBoxCur.getText().split(' ')[1]
     if focus == 1:
-        currency = comboBoxCur.getText().split(' ')[1]
         lblNetto.text = 'Your remaining budget: {0:.2f}{1}'.format(calculateResult(), currency)
         lblNettoBank.text = 'Your remaining bank balance: {0:.2f}{1}'.format(calculateBank(), currency)
         lblTotalSpending.text = 'Your total Spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
@@ -1601,13 +1656,13 @@ def addListToDtb(price: float, exp: str, t: str, moreInfo: str = None, catName: 
     if not catName:
         catName = Category('All')
     if t == 'once':
-        dtbOnce.dataEntry(float(price), exp, user.username, moreInfo, catName)
+        dtbOnce.dataEntry(float(price), exp, user.username, moreInfo, catName.name)
     elif t == 'month':
-        dtbMonth.dataEntry(float(price), exp, user.username, moreInfo, catName)
+        dtbMonth.dataEntry(float(price), exp, user.username, moreInfo, catName.name)
     elif t == 'taking':
-        dtbTakings.dataEntry(float(price), exp, user.username, moreInfo, catName)
+        dtbTakings.dataEntry(float(price), exp, user.username, moreInfo, catName.name)
     elif t == 'takingMonth':
-        dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo, catName)
+        dtbTakingsMonth.dataEntry(float(price), exp, user.username, moreInfo, catName.name)
     elif t == 'user':
         user = User(exp, price, moreInfo)
     else:
@@ -1739,7 +1794,7 @@ def calculateResult() -> float:
 def calculateIncome() -> float:
     """Returns the sum of all the monthly income sources"""
 
-    income = lstboxTakings.cal() + lstboxTakingsMonth.cal()    
+    income = lstboxTakings.cal() + lstboxTakingsMonth.cal()
     return round(income, 2)
 
 
@@ -1838,6 +1893,8 @@ def changeLanguageEnglish(win=None) -> None:
         currency = comboBoxCur.getText().split(' ')[1]
         lblTotalSpending.text = 'Your total spending: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
         lblTotalIncome.text = 'Your total income: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
+        expPriceTxt.placeHolder = 'Price'
+        expInfo.placeHolder = 'Write more about your expense here...'
         if user.username == globalUser:
             editUserBtn.text = 'Edit Users'
         if win:
@@ -1889,6 +1946,8 @@ def changeLanguageGerman(win=None) -> None:
     currency = comboBoxCur.getText().split(' ')[1]
     lblTotalSpending.text = 'Ihr gesamten Ausgaben: {0:.2f}{1}'.format(lstbox.cal() + lstboxMonth.cal(), currency)
     lblTotalIncome.text = 'Ihr gesamten Einnagmen: {0:.2f}{1}'.format(lstboxTakings.cal() + lstboxTakingsMonth.cal(), currency)
+    expPriceTxt.placeHolder = 'Preis'
+    expInfo.placeHolder = 'Schreiben Sie mehr über Ihre Ausgabe hier...'
     if user.username == globalUser:
         editUserBtn.text = 'Benutzer verwalten'
     if win:
@@ -1935,10 +1994,9 @@ def monthEnd() -> bool:
         msgbox.setIcon(QtWidgets.QMessageBox.Information)
         msgbox.setWindowTitle('New month!')
 
-        # ! not working!
-        balance = calculateBank()
-        for user in dtbUser.getUsers():
-            dtbUser.updateUser(balance=balance, username=user[0])
+        
+        for usr in dtbUser.getUsers():
+            dtbUser.updateUser(balance=dtbUser.getUserBalance(usr[0])[0][0] + (dtbTakings.cal(usr[0]) + dtbTakingsMonth.cal(usr[0])) - dtbOnce.cal(usr[0]) - dtbMonth.cal(usr[0]), username=usr[0])
 
         for data in dtbOnce.getAllRecords():
             dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
@@ -2402,6 +2460,20 @@ def belongsToUser(username, dtbElements: list) -> list:
     return results
 
 
+def getCurrentEURtoUSD() -> float:
+    """returns a float of the current value at which euro can be translated into usd"""
+
+    import requests
+    from bs4 import BeautifulSoup
+    URL = 'https://www.exchangerates.org.uk/Euros-to-Dollars-currency-conversion-page.html'
+
+    headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'}
+    page = requests.get(URL, headers=headers)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    exchangeRate = soup.find(id="shd2b;").get_text()
+    return float(exchangeRate)
+
+
 def insertIntoListBoxes(exp: str='all'):
     """Inserts all elements into all the listboxes"""
 
@@ -2528,6 +2600,7 @@ if __name__ == '__main__':
     english = True
     globalUser = 'global'
     categoryType = 'Expense'
+    globalCurrency = 'Euro €'
     addedCats = []
 
     # Try to read from dirfile and set path = standart if it catches error
@@ -2601,7 +2674,7 @@ if __name__ == '__main__':
 
     # Drop down menu for currency and language
     comboBoxCur = ComboBox(mainWin, x=800, y=100, height=40, width=80, fontsize=11)
-    comboBoxCur.addItems('Euro €', 'Dollar $', 'Pound £')
+    comboBoxCur.addItems('Euro €', 'Dollar $')
     comboBoxLang = ComboBox(mainWin, x=1120, y=0, width=80, height=40, fontsize=11)
     comboBoxLang.addItems('English', 'Deutsch')
 
@@ -2700,5 +2773,6 @@ if __name__ == '__main__':
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
     # start the app
     mainWin.show()
+    calendar = Calendar(mainWin, 100, 100)
     # sys.exit(app.app.exec_())
     sys.exit(app.exec_())
