@@ -56,16 +56,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         """closes all windows"""
 
-        dtbOnce.cursor.close()
-        dtbOnce.conn.close()
-        dtbMonth.cursor.close()
-        dtbMonth.conn.close()
-        dtbTakings.cursor.close()
-        dtbTakings.conn.close()
-        dtbTakingsMonth.cursor.close()
-        dtbTakingsMonth.conn.close()
-        dtbOldOnce.cursor.close()
-        dtbOldOnce.conn.close()
+        dtbOnce.destroy()
+        dtbMonth.destroy()
+        dtbTakings.destroy()
+        dtbTakingsMonth.destroy()
+        dtbOldOnce.destroy()
 
         self.app.closeAllWindows()
 
@@ -763,21 +758,6 @@ class DataBase:
         self.cursor.close()
         self.conn.close()
         del self
-
-
-class Calendar(QtWidgets.QCalendarWidget):
-    """calendar class for QCalendarWidget"""
-
-    def __init__(self, win: (QtWidgets.QMainWindow, QtWidgets.QDialog), x: int=0, y: int=0, width: int=75, height: int=23):
-        super().__init__()
-        self.calendar = QtWidgets.QCalendarWidget(win)
-        self.calendar.setGeometry(QtCore.QRect(x, y, width, height))
-        # self.calendar.show()
-
-    def getDate(self):
-        """returns the date which was selected in the qcalendar widget"""
-
-        return self.calendar.selectedDate()
 
 
 class Button(QtWidgets.QPushButton):
@@ -2771,8 +2751,8 @@ if __name__ == '__main__':
         editUserBtn = Button(mainWin, text='Edit Users', command=userEdit, x=230, y=540, height=35, width=90)
     
     userOriginBtn = Button(mainWin, text='See user', command=showUserToExpense, x=230, y=380, height=35, width=90)
+    
     # start the app
     mainWin.show()
-    calendar = Calendar(mainWin, 100, 100)
     # sys.exit(app.app.exec_())
     sys.exit(app.exec_())
