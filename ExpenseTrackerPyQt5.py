@@ -365,9 +365,9 @@ class User:
             
             self.password = data['passwords'][self.username]
 
-            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+            dtbUser.dataEntryUser(self.username, self.password, self.balance, 0)
         else:
-            dtbUser.dataEntryUser(self.username, self.password, self.balance)
+            dtbUser.dataEntryUser(self.username, self.password, self.balance, 0)
             group = Group('global')
             group.addUserToGroup(self.username)
             group.addGroupPW('')
@@ -547,6 +547,7 @@ class DataBase:
                                 Username TEXT,
                                 Password TEXT,
                                 BankBalance INTEGER,
+                                Savings INTEGER,
                                 PRIMARY KEY(ID)
                                 )''')
         elif enc == 'category':
@@ -577,7 +578,7 @@ class DataBase:
     def updateUser(self, username: str=None, password: str=None, balance: (int, str)=None, oldUsername: str=None, typ: str='main') -> None:
         """Updates all balances and writes them to DTB:"""
 
-        if balance and username is not None and typ == 'main':
+        if balance is not None and username is not None and typ == 'main':
             if username not in groups:
                 self.cursor.execute('UPDATE ' + self.table + ' Set BankBalance = ? WHERE Username = ?', (balance, username))
                 self.conn.commit()
@@ -589,6 +590,16 @@ class DataBase:
             self.conn.commit()
         else:
             raise ValueError('Please input either only balance or all of the arguments')
+    
+    def updateUserSavings(self, username: str, savings: float) -> None:
+        """adds the parameter savings to the current savings read from dtb"""
+
+        self.cursor.execute('SELECT Savings FROM ' + self.table + ' WHERE Username = ?', (username, ))
+        prevSavings = self.cursor.fetchone()
+        totalSavings = prevSavings[0] + savings
+
+        self.cursor.execute('UPDATE ' + self.table + ' SET Savings = ?', (str(totalSavings), ))
+        self.conn.commit()
 
     def getUsers(self):
         """returns list of all usernames"""
@@ -600,6 +611,12 @@ class DataBase:
         """returns the balance of the user"""
 
         self.cursor.execute('SELECT BankBalance FROM ' + self.table + ' WHERE Username = ?', (username, ))
+        return self.cursor.fetchall()
+
+    def getUserSavings(self, username: str) -> list:
+        """returns the savings of the user"""
+
+        self.cursor.execute('SELECT Savings FROM ' + self.table + ' WHERE Username = ?', (username, ))
         return self.cursor.fetchall()
 
     def readFromCategoryDtb(self, name: str=None, enc: str='noUser') -> list:
@@ -654,10 +671,10 @@ class DataBase:
                             (exp, price, moreInfo.rstrip('\n'), day, month, year, username, catName))
         self.conn.commit()
 
-    def dataEntryUser(self, username: str, password: str, balance: str) -> None:
+    def dataEntryUser(self, username: str, password: str, balance: str, savings: float) -> None:
         """Enters into user database, takes username, password and userid"""
 
-        self.cursor.execute('INSERT INTO ' + self.table + ' (Username, Password, BankBalance) VALUES (?, ?, ?)', (username, password, balance))
+        self.cursor.execute('INSERT INTO ' + self.table + ' (Username, Password, BankBalance, Savings) VALUES (?, ?, ?, ?)', (username, password, balance, savings))
         self.conn.commit()
 
     def clearDtb(self) -> None:
@@ -1966,26 +1983,49 @@ def isMonthEnd() -> bool:
     return False
 
 
+def isYearEnd() -> bool:
+    """Returns true if the year has ended, else False"""
+
+    lastDate = readFromTxtFile(path + 'LastOpened.txt', 'str')
+    today = datetime.today()
+    try:
+        lastYear = lastDate.split(';')[1]
+    except ValueError:
+        return True
+    lastYear = int(lastYear)
+    if today.year > lastYear:
+        return True
+    return False
+
 def monthEnd() -> bool:
     """The events that have to happen if the month has ended. Line moving all old One-Time expenses to the oldDtb and writing date to text file"""
-
+    
+    msgbox = QtWidgets.QMessageBox(mainWin)
+    msgbox.setIcon(QtWidgets.QMessageBox.Information)
+    if user.username not in groups:
+        if isYearEnd():
+            msgbox.setWindowTitle('Your total Savings this year')
+            msgbox.information(msgbox, 'Your total Savings this year', f'You have saved {dtbUser.getUserSavings(user.username)[0][0]}€ this year')
+            dtbOldOnce.clearDtb()
+            for usr in dtbUser.getUsers():
+                if usr[0] not in groups:
+                    dtbUser.cursor.execute('UPDATE ' + dtbUser.table + ' SET Savings = ? WHERE Username =?', (0, usr[0]))
+                    dtbUser.conn.commit()
     if isMonthEnd():
-        msgbox = QtWidgets.QMessageBox(mainWin)
-        msgbox.setIcon(QtWidgets.QMessageBox.Information)
         msgbox.setWindowTitle('New month!')
-
         
         for usr in dtbUser.getUsers():
             dtbUser.updateUser(balance=dtbUser.getUserBalance(usr[0])[0][0] + (dtbTakings.cal(usr[0]) + dtbTakingsMonth.cal(usr[0])) - dtbOnce.cal(usr[0]) - dtbMonth.cal(usr[0]), username=usr[0])
+            dtbUser.updateUserSavings(usr[0], dtbUser.getUserSavings(usr[0])[0][0])
 
         for data in dtbOnce.getAllRecords():
-            dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3])
+            dtbOldOnce.dataEntry(data[2], data[1], moreInfo=data[3], catName=data[7])
             dtbOnce.clearDtb()
             lstbox.listbox.clear()
             dtbTakings.clearDtb()
             lstboxTakings.listbox.clear()
-            msgbox.information(msgbox, 'New Month',
-                               'A new month has begun, all One-Time-Expenses and Takings were deleted!')
+        msgbox.information(msgbox, 'New Month',
+                           'A new month has begun, all One-Time-Expenses and Takings were deleted!')
         return True
     return False
 
