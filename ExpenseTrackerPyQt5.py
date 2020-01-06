@@ -596,7 +596,10 @@ class DataBase:
 
         self.cursor.execute('SELECT Savings FROM ' + self.table + ' WHERE Username = ?', (username, ))
         prevSavings = self.cursor.fetchone()
-        totalSavings = prevSavings[0] + savings
+        try:
+            totalSavings = prevSavings[0] + savings
+        except TypeError:
+            totalSavings = 0
 
         self.cursor.execute('UPDATE ' + self.table + ' SET Savings = ?', (str(totalSavings), ))
         self.conn.commit()
