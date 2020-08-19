@@ -26,7 +26,6 @@ from matplotlib.pyplot import legend, plot, show, title, xlabel, ylabel
 # from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from PyQt5 import QtCore, QtGui, QtWidgets
 from inspect import currentframe
-from threading import Thread
 
 
 def lineno():
